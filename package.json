@@ -1,0 +1,13 @@
+{
+  "name": "lottery-generator-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "wrangler": "^3.99.0"
+  }
+}
