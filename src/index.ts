@@ -50,7 +50,7 @@ export default {
     return new Response("Not found", { status: 404 });
   },
 
-  async scheduled(_event: ScheduledController, _env: Env, _ctx: ExecutionContext): Promise<void> {
+  async scheduled(): Promise<void> {
     console.log("Weekly job placeholder");
   }
 };
