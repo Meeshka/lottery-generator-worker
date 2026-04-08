@@ -1,5 +1,5 @@
 {
-  "name": "lottery-generator-worker",
+  "name": "lottery_generator_worker",
   "version": "1.0.0",
   "private": true,
   "scripts": {
