@@ -1,5 +1,12 @@
 {
   "name": "lottery-generator-worker",
   "main": "src/index.ts",
-  "compatibility_date": "2026-04-08"
+  "compatibility_date": "2026-04-08",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lottery-db",
+      "database_id": "3ccb484d-ca8a-41f7-ba66-494fb66b52cd"
+    }
+  ]
 }
