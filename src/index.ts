@@ -186,6 +186,14 @@ export default {
       });
     }
 
+    if (url.pathname === "/admin/ping") {
+      return Response.json({
+        ok: true,
+        method: request.method,
+        path: url.pathname
+      });
+    }
+    
     return new Response("Not found", { status: 404 });
   },
 
