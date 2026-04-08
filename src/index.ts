@@ -5,7 +5,7 @@ export default {
     if (url.pathname === "/health") {
       return Response.json({
         ok: true,
-        service: "lottery-generator-worker"
+        service: "lottery_generator_worker"
       });
     }
 
