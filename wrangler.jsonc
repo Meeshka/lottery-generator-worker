@@ -1,5 +1,5 @@
 {
-  "name": "lottery-generator-worker",
+  "name": "lottery_generator_worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-08"
 }
