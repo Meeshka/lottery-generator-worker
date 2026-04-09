@@ -1,0 +1,234 @@
+{
+  "segments": {
+    "S1_1_9": 0.974588369658323,
+    "S2_10_19": 0.9593604263824117,
+    "S3_20_29": 1.0552964690206528,
+    "S4_30_37": 1.0107547349386123
+  },
+  "SEG_WEIGHTS": [
+    0.974588369658323,
+    0.9593604263824117,
+    1.0552964690206528,
+    1.0107547349386123
+  ],
+  "ALPHA_OVERFLOW": 0.2222222222222222,
+  "BETA_ZERO_BY_SEGMENT": [
+    0.8,
+    0.8,
+    0.8444444444444444,
+    0.8222222222222222
+  ],
+  "BASE_LIMITS": [
+    3,
+    3,
+    3,
+    2
+  ],
+  "segment_sizes": [
+    9,
+    10,
+    10,
+    8
+  ],
+  "total_numbers": 37,
+  "picks": 6,
+  "n_draws_used": 45,
+  "clustering": {
+    "n_clusters": 4,
+    "method": "weighted_kmeans",
+    "segment_weights_used": [
+      0.974588369658323,
+      0.9593604263824117,
+      1.0552964690206528,
+      1.0107547349386123
+    ],
+    "clusters": {
+      "cluster_1": {
+        "centroid": [
+          0.5,
+          0.9,
+          3.0,
+          1.6
+        ],
+        "size": 10,
+        "percentage": 22.2,
+        "dominant_patterns": [
+          {
+            "pattern": [
+              0,
+              1,
+              3,
+              2
+            ],
+            "count": 3
+          },
+          {
+            "pattern": [
+              1,
+              1,
+              3,
+              1
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              1,
+              1,
+              2,
+              2
+            ],
+            "count": 2
+          }
+        ],
+        "description": "S3-heavy (20-29 range favored) - middle-high bias"
+      },
+      "cluster_2": {
+        "centroid": [
+          1.48,
+          2.57,
+          1.14,
+          0.81
+        ],
+        "size": 21,
+        "percentage": 46.7,
+        "dominant_patterns": [
+          {
+            "pattern": [
+              1,
+              2,
+              2,
+              1
+            ],
+            "count": 4
+          },
+          {
+            "pattern": [
+              1,
+              3,
+              1,
+              1
+            ],
+            "count": 3
+          },
+          {
+            "pattern": [
+              2,
+              3,
+              0,
+              1
+            ],
+            "count": 2
+          }
+        ],
+        "description": "Balanced with S2 preference (10-19 range) - most common"
+      },
+      "cluster_3": {
+        "centroid": [
+          2.33,
+          0.5,
+          2.5,
+          0.67
+        ],
+        "size": 6,
+        "percentage": 13.3,
+        "dominant_patterns": [
+          {
+            "pattern": [
+              2,
+              0,
+              3,
+              1
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              3,
+              1,
+              2,
+              0
+            ],
+            "count": 1
+          },
+          {
+            "pattern": [
+              2,
+              1,
+              2,
+              1
+            ],
+            "count": 1
+          }
+        ],
+        "description": "Low+S3 mix (1-9 and 20-29) - small and middle combination"
+      },
+      "cluster_4": {
+        "centroid": [
+          1.75,
+          0.5,
+          1.0,
+          2.75
+        ],
+        "size": 8,
+        "percentage": 17.8,
+        "dominant_patterns": [
+          {
+            "pattern": [
+              3,
+              0,
+              1,
+              2
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              2,
+              0,
+              2,
+              2
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              1,
+              1,
+              0,
+              4
+            ],
+            "count": 1
+          }
+        ],
+        "description": "High-heavy (30-37 range favored) - rare, high-risk pattern"
+      }
+    },
+    "recommendations": {
+      "most_common_cluster": "cluster_2",
+      "rare_clusters": [
+        "cluster_3",
+        "cluster_4"
+      ],
+      "suggested_strategy": "Consider targeting rare clusters for potential underexploited patterns",
+      "cluster_targets": {
+        "3": {
+          "size": 6,
+          "opportunity_score": 86.7
+        },
+        "4": {
+          "size": 8,
+          "opportunity_score": 82.2
+        },
+        "1": {
+          "size": 10,
+          "opportunity_score": 77.8
+        },
+        "2": {
+          "size": 21,
+          "opportunity_score": 53.3
+        }
+      }
+    }
+  }
+}
