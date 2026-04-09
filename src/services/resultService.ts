@@ -11,6 +11,19 @@ export interface ImportBatchResultsInput {
   results: TicketResultInput[];
 }
 
+export interface BatchSummary {
+  batchId: number;
+  batchKey: string;
+  status: string;
+  ticketCount: number;
+  checkedResultsCount: number;
+  ticketsWith3Plus: number;
+  totalPrize: number;
+  drawDbId: number | null;
+  checkedAt: string | null;
+  createdAt: string;
+}
+
 function validateResultInput(item: TicketResultInput): void {
   if (!Number.isInteger(item.ticketIndex) || item.ticketIndex < 1) {
     throw new Error(`Invalid ticketIndex: ${item.ticketIndex}`);
@@ -125,4 +138,56 @@ export async function getLatestGeneratedBatchId(
 ): Promise<number | null> {
   const batch = await getLatestGeneratedBatch(db);
   return batch?.id ?? null;
+}
+
+export async function getBatchSummary(
+  db: D1Database,
+  batchId: number,
+): Promise<BatchSummary | null> {
+  const batch = await getBatchById(db, batchId);
+  if (!batch) return null;
+
+  const aggregate = await db
+    .prepare(`
+      SELECT
+        COUNT(tr.id) AS checked_results_count,
+        COALESCE(SUM(CASE WHEN tr.qualifies_3plus = 1 THEN 1 ELSE 0 END), 0) AS tickets_with_3plus,
+        COALESCE(SUM(COALESCE(tr.prize, 0)), 0) AS total_prize,
+        MAX(tr.draw_id) AS draw_db_id
+      FROM tickets t
+      LEFT JOIN ticket_results tr ON tr.ticket_id = t.id
+      WHERE t.batch_id = ?
+    `)
+    .bind(batchId)
+    .first<{
+      checked_results_count: number | string | null;
+      tickets_with_3plus: number | string | null;
+      total_prize: number | string | null;
+      draw_db_id: number | string | null;
+    }>();
+
+  return {
+    batchId: batch.id,
+    batchKey: batch.batch_key,
+    status: batch.status,
+    ticketCount: batch.ticket_count,
+    checkedResultsCount: Number(aggregate?.checked_results_count ?? 0),
+    ticketsWith3Plus: Number(aggregate?.tickets_with_3plus ?? 0),
+    totalPrize: Number(aggregate?.total_prize ?? 0),
+    drawDbId:
+      aggregate?.draw_db_id === null || aggregate?.draw_db_id === undefined
+        ? null
+        : Number(aggregate.draw_db_id),
+    checkedAt: batch.checked_at,
+    createdAt: batch.created_at,
+  };
+}
+
+export async function getLatestBatchSummary(
+  db: D1Database,
+): Promise<BatchSummary | null> {
+  const batch = await getLatestBatch(db);
+  if (!batch) return null;
+
+  return getBatchSummary(db, batch.id);
 }

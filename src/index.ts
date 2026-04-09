@@ -1,5 +1,6 @@
 import type { Env } from "./types";
 import { handleAdminRoute } from "./routes/admin";
+import { handleBatchesRoute } from "./routes/batches";
 import { jsonResponse, notFoundResponse } from "./utils/response";
 
 export default {
@@ -79,6 +80,11 @@ export default {
     if (adminResponse) {
       return adminResponse;
     }
+
+    const batchesResponse = await handleBatchesRoute(request, env);
+        if (batchesResponse) {
+          return batchesResponse;
+        }
 
     return notFoundResponse();
   },
