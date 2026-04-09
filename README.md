@@ -3,7 +3,6 @@
 Cloudflare Worker API for storing generated lottery ticket batches, exposing read endpoints for the latest draw and weights, and importing batch result checks into a D1 database.
 
 ## What it does
-
 - Stores generated ticket batches and their tickets.
 - Exposes public read endpoints for health, stats, latest draw, latest weights, and batch data.
 - Exposes admin-only endpoints for creating batches and importing checked results.
