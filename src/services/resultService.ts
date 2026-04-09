@@ -1,6 +1,11 @@
 import type { TicketResultInput, TicketResultRow } from "../types";
 import { getLatestDraw } from "../repositories/drawsRepo";
-import { getBatchById, getLatestGeneratedBatch, markBatchChecked } from "../repositories/batchesRepo";
+import {
+  getBatchById,
+  getLatestBatch,
+  getLatestGeneratedBatch,
+  markBatchChecked,
+} from "../repositories/batchesRepo";
 import { getTicketByBatchIdAndIndex } from "../repositories/ticketsRepo";
 import { getResultsByBatchId, insertTicketResults } from "../repositories/resultsRepo";
 

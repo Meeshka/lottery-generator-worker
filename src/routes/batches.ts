@@ -4,7 +4,11 @@ import {
   getBatchWithTicketsById,
   getLatestBatchWithTickets,
 } from "../services/batchService";
-import {getBatchResults, getBatchSummary, getLatestBatchSummary} from "../services/resultService";
+import {
+  getBatchResults,
+  getBatchSummary,
+  getLatestBatchSummary,
+} from "../services/resultService";
 import { getBatchById } from "../repositories/batchesRepo";
 
 function parseBatchIdFromPath(pathname: string, suffix?: string): number | null {

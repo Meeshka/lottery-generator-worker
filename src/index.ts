@@ -82,9 +82,9 @@ export default {
     }
 
     const batchesResponse = await handleBatchesRoute(request, env);
-        if (batchesResponse) {
-          return batchesResponse;
-        }
+    if (batchesResponse) {
+      return batchesResponse;
+    }
 
     return notFoundResponse();
   },
