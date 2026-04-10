@@ -146,7 +146,7 @@ export async function getBatches(
   db: D1Database,
   options?: { limit?: number; status?: string },
 ): Promise<BatchRow[]> {
-  let query = 
+  let query = `
     SELECT
       id,
       batch_key,
@@ -160,7 +160,7 @@ export async function getBatches(
       archived_at,
       deleted_at
     FROM ticket_batches
-  ;
+  `;
 
   const conditions: string[] = [];
   const params: any[] = [];
