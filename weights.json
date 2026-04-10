@@ -1,22 +1,22 @@
 {
   "segments": {
-    "S1_1_9": 0.974588369658323,
-    "S2_10_19": 0.9593604263824117,
-    "S3_20_29": 1.0552964690206528,
-    "S4_30_37": 1.0107547349386123
+    "S1_1_9": 0.9986027014438752,
+    "S2_10_19": 0.9658127619934794,
+    "S3_20_29": 1.0462971588262693,
+    "S4_30_37": 0.9892873777363763
   },
   "SEG_WEIGHTS": [
-    0.974588369658323,
-    0.9593604263824117,
-    1.0552964690206528,
-    1.0107547349386123
+    0.9986027014438752,
+    0.9658127619934794,
+    1.0462971588262693,
+    0.9892873777363763
   ],
-  "ALPHA_OVERFLOW": 0.2222222222222222,
+  "ALPHA_OVERFLOW": 0.21739130434782608,
   "BETA_ZERO_BY_SEGMENT": [
+    0.8043478260869565,
     0.8,
-    0.8,
-    0.8444444444444444,
-    0.8222222222222222
+    0.8478260869565217,
+    0.8043478260869565
   ],
   "BASE_LIMITS": [
     3,
@@ -32,26 +32,26 @@
   ],
   "total_numbers": 37,
   "picks": 6,
-  "n_draws_used": 45,
+  "n_draws_used": 46,
   "clustering": {
     "n_clusters": 4,
     "method": "weighted_kmeans",
     "segment_weights_used": [
-      0.974588369658323,
-      0.9593604263824117,
-      1.0552964690206528,
-      1.0107547349386123
+      0.9986027014438752,
+      0.9658127619934794,
+      1.0462971588262693,
+      0.9892873777363763
     ],
     "clusters": {
       "cluster_1": {
         "centroid": [
-          0.5,
-          0.9,
-          3.0,
-          1.6
+          0.58,
+          0.92,
+          2.42,
+          2.08
         ],
-        "size": 10,
-        "percentage": 22.2,
+        "size": 12,
+        "percentage": 26.1,
         "dominant_patterns": [
           {
             "pattern": [
@@ -85,13 +85,93 @@
       },
       "cluster_2": {
         "centroid": [
-          1.48,
-          2.57,
-          1.14,
-          0.81
+          2.36,
+          2.45,
+          0.73,
+          0.45
         ],
-        "size": 21,
-        "percentage": 46.7,
+        "size": 11,
+        "percentage": 23.9,
+        "dominant_patterns": [
+          {
+            "pattern": [
+              2,
+              3,
+              0,
+              1
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              2,
+              2,
+              1,
+              1
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              2,
+              2,
+              2,
+              0
+            ],
+            "count": 2
+          }
+        ],
+        "description": "Balanced with S2 preference (10-19 range) - most common"
+      },
+      "cluster_3": {
+        "centroid": [
+          2.36,
+          0.27,
+          1.91,
+          1.45
+        ],
+        "size": 11,
+        "percentage": 23.9,
+        "dominant_patterns": [
+          {
+            "pattern": [
+              2,
+              0,
+              3,
+              1
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              3,
+              0,
+              1,
+              2
+            ],
+            "count": 2
+          },
+          {
+            "pattern": [
+              2,
+              0,
+              2,
+              2
+            ],
+            "count": 2
+          }
+        ],
+        "description": "Low+S3 mix (1-9 and 20-29) - small and middle combination"
+      },
+      "cluster_4": {
+        "centroid": [
+          0.67,
+          2.58,
+          1.67,
+          1.08
+        ],
+        "size": 12,
+        "percentage": 26.1,
         "dominant_patterns": [
           {
             "pattern": [
@@ -113,90 +193,10 @@
           },
           {
             "pattern": [
-              2,
-              3,
               0,
-              1
-            ],
-            "count": 2
-          }
-        ],
-        "description": "Balanced with S2 preference (10-19 range) - most common"
-      },
-      "cluster_3": {
-        "centroid": [
-          2.33,
-          0.5,
-          2.5,
-          0.67
-        ],
-        "size": 6,
-        "percentage": 13.3,
-        "dominant_patterns": [
-          {
-            "pattern": [
-              2,
-              0,
-              3,
-              1
-            ],
-            "count": 2
-          },
-          {
-            "pattern": [
-              3,
-              1,
+              4,
               2,
               0
-            ],
-            "count": 1
-          },
-          {
-            "pattern": [
-              2,
-              1,
-              2,
-              1
-            ],
-            "count": 1
-          }
-        ],
-        "description": "Low+S3 mix (1-9 and 20-29) - small and middle combination"
-      },
-      "cluster_4": {
-        "centroid": [
-          1.75,
-          0.5,
-          1.0,
-          2.75
-        ],
-        "size": 8,
-        "percentage": 17.8,
-        "dominant_patterns": [
-          {
-            "pattern": [
-              3,
-              0,
-              1,
-              2
-            ],
-            "count": 2
-          },
-          {
-            "pattern": [
-              2,
-              0,
-              2,
-              2
-            ],
-            "count": 2
-          },
-          {
-            "pattern": [
-              1,
-              1,
-              0,
-              4
             ],
             "count": 1
           }
@@ -205,28 +205,28 @@
       }
     },
     "recommendations": {
-      "most_common_cluster": "cluster_2",
+      "most_common_cluster": "cluster_1",
       "rare_clusters": [
-        "cluster_3",
-        "cluster_4"
+        "cluster_2",
+        "cluster_3"
       ],
       "suggested_strategy": "Consider targeting rare clusters for potential underexploited patterns",
       "cluster_targets": {
-        "3": {
-          "size": 6,
-          "opportunity_score": 86.7
+        "2": {
+          "size": 11,
+          "opportunity_score": 76.1
         },
-        "4": {
-          "size": 8,
-          "opportunity_score": 82.2
+        "3": {
+          "size": 11,
+          "opportunity_score": 76.1
         },
         "1": {
-          "size": 10,
-          "opportunity_score": 77.8
+          "size": 12,
+          "opportunity_score": 73.9
         },
-        "2": {
-          "size": 21,
-          "opportunity_score": 53.3
+        "4": {
+          "size": 12,
+          "opportunity_score": 73.9
         }
       }
     }
