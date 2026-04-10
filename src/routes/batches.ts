@@ -3,6 +3,7 @@ import { jsonResponse, notFoundResponse } from "../utils/response";
 import {
   getBatchWithTicketsById,
   getLatestBatchWithTickets,
+  getBatches,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -41,6 +42,21 @@ export async function handleBatchesRoute(
 
   if (!pathname.startsWith("/batches")) {
     return null;
+  }
+
+  if (pathname === "/batches" && request.method === "GET") {
+    const limitParam = url.searchParams.get("limit");
+    const statusParam = url.searchParams.get("status");
+
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const status = statusParam || undefined;
+
+    const batches = await getBatches(env.DB, { limit, status });
+
+    return jsonResponse({
+      ok: true,
+      batches,
+    });
   }
 
   if (pathname === "/batches/latest" && request.method === "GET") {
