@@ -23,44 +23,12 @@ import validate_updated as validator
 
 DEFAULT_BASE_URL = "https://lottery-generator-worker.ushakov-ma.workers.dev"
 
-STATE_FILE = Path(".bridge_state.json")
-
-
 def get_latest_generated_batch(base_url: str, admin_key: str) -> Dict[str, Any]:
     return http_json(
         "GET",
         f"{base_url}/admin/batches/latest-generated",
         admin_key=admin_key,
     )
-
-def load_state() -> Dict[str, Any]:
-    if not STATE_FILE.exists():
-        return {}
-    try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def save_state(data: Dict[str, Any]) -> None:
-    STATE_FILE.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
-def remember_batch(base_url: str, created_response: Dict[str, Any]) -> None:
-    batch = created_response.get("batch") or {}
-    batch_id = batch.get("id")
-    batch_key = batch.get("batch_key")
-
-    if isinstance(batch_id, int):
-        state = load_state()
-        state["base_url"] = base_url
-        state["last_batch_id"] = batch_id
-        state["last_batch_key"] = batch_key
-        state["updated_at"] = datetime.now(timezone.utc).isoformat()
-        save_state(state)
 
 
 def resolve_batch_id(
@@ -341,6 +309,10 @@ def check_batch_against_latest_draw(
         raise RuntimeError(f"Unexpected batch tickets response: {batch_payload}")
 
     tickets_rows = batch_payload["tickets"]
+    row_to_ticket_index = {
+        csv_row_number: int(row["ticket_index"])
+        for csv_row_number, row in enumerate(tickets_rows, start=2)
+    }
     latest_draw = validator._load_latest_draw_from_jsonl(draw_history_path)
 
     with tempfile.NamedTemporaryFile(
@@ -372,9 +344,14 @@ def check_batch_against_latest_draw(
         for item in details:
             if "error" in item:
                 continue
+            ticket_index = row_to_ticket_index.get(item["row"])
+            if ticket_index is None:
+                raise RuntimeError(
+                    f"Could not map validator row {item['row']} to a batch ticket index"
+                )
             results_payload.append(
                 {
-                    "ticketIndex": item["row"],
+                    "ticketIndex": ticket_index,
                     "matchCount": item["match_count"],
                     "matchedNumbers": item["matched_numbers"],
                     "strongMatch": item["strong_match"],
@@ -492,7 +469,6 @@ def main() -> None:
                 cluster_target=args.cluster_target,
                 generator_version=args.generator_version,
             )
-            remember_batch(args.base_url, res)
             print_json(res)
             return
 

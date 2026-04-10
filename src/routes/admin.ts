@@ -11,6 +11,7 @@ import {
   getBatchWithTicketsById,
   getLatestBatchWithTickets,
   getLatestGeneratedBatchWithTickets,
+  getBatches,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -113,6 +114,21 @@ export async function handleAdminRoute(
       ok: true,
       batch: latest?.batch ?? null,
       tickets: latest?.tickets ?? [],
+    });
+  }
+
+  if (pathname === "/admin/batches" && request.method === "GET") {
+    const limitParam = url.searchParams.get("limit");
+    const statusParam = url.searchParams.get("status");
+
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const status = statusParam || undefined;
+
+    const batches = await getBatches(env.DB, { limit, status });
+
+    return jsonResponse({
+      ok: true,
+      batches,
     });
   }
 
