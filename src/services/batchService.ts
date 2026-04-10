@@ -1,5 +1,5 @@
 import type { BatchRow, CreateBatchInput, TicketInput, TicketRow } from "../types";
-import { createBatch, getBatchById, getLatestBatch, getLatestGeneratedBatch, archiveBatch, markBatchChecked } from "../repositories/batchesRepo";
+import { createBatch, getBatchById, getLatestBatch, getLatestGeneratedBatch, archiveBatch, markBatchChecked, getBatches as getBatchesRepo } from "../repositories/batchesRepo";
 import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo";
 
 export interface CreateBatchWithTicketsInput {
@@ -116,4 +116,10 @@ export async function markBatchAsChecked(
   batchId: number,
 ): Promise<void> {
   await markBatchChecked(db, batchId);
+}
+export async function getBatches(
+  db: D1Database,
+  options?: { limit?: number; status?: string },
+): Promise<BatchRow[]> {
+  return await getBatchesRepo(db, options);
 }

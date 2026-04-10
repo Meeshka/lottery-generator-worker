@@ -142,3 +142,50 @@ export async function archiveBatch(
     .bind(batchId)
     .run();
 }
+export async function getBatches(
+  db: D1Database,
+  options?: { limit?: number; status?: string },
+): Promise<BatchRow[]> {
+  let query = 
+    SELECT
+      id,
+      batch_key,
+      status,
+      target_draw_id,
+      generator_version,
+      weights_version_key,
+      ticket_count,
+      created_at,
+      checked_at,
+      archived_at,
+      deleted_at
+    FROM ticket_batches
+  ;
+
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  if (options?.status) {
+    conditions.push("status = ?");
+    params.push(options.status);
+  }
+
+  if (conditions.length > 0) {
+    query += " WHERE " + conditions.join(" AND ");
+  }
+
+  query += " ORDER BY created_at DESC, id DESC";
+
+  if (options?.limit) {
+    query += " LIMIT ?";
+    params.push(options.limit);
+  }
+
+  const stmt = db.prepare(query);
+  for (let i = 0; i < params.length; i++) {
+    stmt.bind(params[i]);
+  }
+
+  const result = await stmt.all<BatchRow>();
+  return result.results ?? [];
+}
