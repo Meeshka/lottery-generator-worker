@@ -57,6 +57,30 @@ Deploy:
 npm run deploy
 ```
 
+## Python bridge CLI
+
+`bridge.py` supports the following workflow commands:
+
+```bash
+python bridge.py sync
+python bridge.py generate
+python bridge.py generate --batch-key batch-2026-04-10
+python bridge.py check-latest
+python bridge.py check-latest --batch-id 123
+python bridge.py full-cycle
+python bridge.py full-cycle --batch-key batch-2026-04-10 --check-latest
+```
+
+Notes:
+
+- `generate` generates tickets and immediately saves the batch in the Worker.
+- if `--batch-key` is omitted, `generate` and `full-cycle` create a UUID batch key automatically.
+- `sync` updates only local `draw_history.jsonl` and `weights.json`; it does not import draws into the Worker DB.
+- `check-latest` validates the latest generated batch by default; `--batch-id` can be used to override the batch selection.
+- `check-latest` uses the latest draw currently stored in the Worker DB and matches it against the same draw inside local `draw_history.jsonl`.
+- `check` remains available as a backward-compatible alias for `check-latest`.
+- `full-cycle` runs generate + save, and can optionally run the latest-draw check when `--check-latest` is passed.
+
 ## API
 
 All responses are JSON. Common error responses:

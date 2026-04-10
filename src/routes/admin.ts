@@ -10,6 +10,7 @@ import {
   createBatchWithTickets,
   getBatchWithTicketsById,
   getLatestBatchWithTickets,
+  getLatestGeneratedBatchWithTickets,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -97,6 +98,16 @@ export async function handleAdminRoute(
 
   if (pathname === "/admin/batches/latest" && request.method === "GET") {
     const latest = await getLatestBatchWithTickets(env.DB);
+
+    return jsonResponse({
+      ok: true,
+      batch: latest?.batch ?? null,
+      tickets: latest?.tickets ?? [],
+    });
+  }
+
+  if (pathname === "/admin/batches/latest-generated" && request.method === "GET") {
+    const latest = await getLatestGeneratedBatchWithTickets(env.DB);
 
     return jsonResponse({
       ok: true,

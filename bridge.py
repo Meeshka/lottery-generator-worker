@@ -11,7 +11,10 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+import uuid
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+from pathlib import Path
 
 import lottery_generator as lg
 import lotto_update
@@ -19,7 +22,63 @@ import validate_updated as validator
 
 
 DEFAULT_BASE_URL = "https://lottery-generator-worker.ushakov-ma.workers.dev"
-DEFAULT_USER_AGENT = "lottery-generator-bridge/1.0"
+
+STATE_FILE = Path(".bridge_state.json")
+
+
+def get_latest_generated_batch(base_url: str, admin_key: str) -> Dict[str, Any]:
+    return http_json(
+        "GET",
+        f"{base_url}/admin/batches/latest-generated",
+        admin_key=admin_key,
+    )
+
+def load_state() -> Dict[str, Any]:
+    if not STATE_FILE.exists():
+        return {}
+    try:
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_state(data: Dict[str, Any]) -> None:
+    STATE_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def remember_batch(base_url: str, created_response: Dict[str, Any]) -> None:
+    batch = created_response.get("batch") or {}
+    batch_id = batch.get("id")
+    batch_key = batch.get("batch_key")
+
+    if isinstance(batch_id, int):
+        state = load_state()
+        state["base_url"] = base_url
+        state["last_batch_id"] = batch_id
+        state["last_batch_key"] = batch_key
+        state["updated_at"] = datetime.now(timezone.utc).isoformat()
+        save_state(state)
+
+
+def resolve_batch_id(
+    explicit_batch_id: Optional[int],
+    base_url: str,
+    admin_key: str,
+) -> int:
+    if explicit_batch_id is not None:
+        return explicit_batch_id
+
+    payload = get_latest_generated_batch(base_url, admin_key)
+    batch = payload.get("batch") if isinstance(payload, dict) else None
+    batch_id = batch.get("id") if isinstance(batch, dict) else None
+
+    if isinstance(batch_id, int):
+        return batch_id
+
+    raise RuntimeError("No generated batch found in Worker")
 
 
 def http_json(
@@ -29,9 +88,9 @@ def http_json(
     body_obj: Optional[Any] = None,
     timeout: int = 60,
 ) -> Any:
-    headers = {
+    headers: Dict[str, str] = {
         "Accept": "application/json",
-        "User-Agent": DEFAULT_USER_AGENT,
+        "User-Agent": "lotto-bridge/1.0",
     }
     data = None
 
@@ -43,40 +102,20 @@ def http_json(
         headers["Content-Type"] = "application/json"
 
     req = urllib.request.Request(url=url, data=data, headers=headers, method=method)
+
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
             if not raw:
                 return None
             return json.loads(raw)
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
-        detail = raw.strip()
-        if detail:
-            try:
-                parsed = json.loads(detail)
-                detail = json.dumps(parsed, ensure_ascii=False)
-            except json.JSONDecodeError:
-                pass
-            raise RuntimeError(
-                f"HTTP {exc.code} {method} {url} failed: {detail}"
-            ) from exc
-        raise RuntimeError(f"HTTP {exc.code} {method} {url} failed") from exc
-
-
-def load_json(path: str) -> Any:
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def load_jsonl_array(path: str) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                out.append(json.loads(line))
-    return out
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {e.code} {e.reason} for {url}\n{body}")
 
 
 def write_tickets_csv(path: str, tickets: List[Dict[str, Any]]) -> None:
@@ -89,9 +128,7 @@ def write_tickets_csv(path: str, tickets: List[Dict[str, Any]]) -> None:
             writer.writerow(nums + [strong if strong is not None else ""])
 
 
-def sync_draws_and_weights(
-    base_url: str,
-    admin_key: str,
+def sync_local_data(
     auth_path: str,
     token_path: str,
     history_path: str,
@@ -103,25 +140,70 @@ def sync_draws_and_weights(
         history_path=history_path,
         weights_path=weights_path,
     )
+    print(f"Updated local history: {history_path}")
+    print(f"Updated local weights: {weights_path}")
 
-    #draws = load_jsonl_array(history_path)
-    #weights = load_json(weights_path)
 
-    #res1 = http_json(
-    #    "POST",
-    #    f"{base_url}/admin/import/draws",
-    #    admin_key=admin_key,
-    #    body_obj=draws,
-    #)
-    #res2 = http_json(
-    #    "POST",
-    #    f"{base_url}/admin/import/weights",
-    #    admin_key=admin_key,
-    #    body_obj=weights,
-    #)
+def get_current_weights_version(base_url: str) -> Optional[str]:
+    row = http_json("GET", f"{base_url}/weights/current")
+    if isinstance(row, dict):
+        return row.get("version_key")
+    return None
 
-    #print("Draws import:", json.dumps(res1, ensure_ascii=False, indent=2))
-    #print("Weights import:", json.dumps(res2, ensure_ascii=False, indent=2))
+
+def get_latest_batch_summary(base_url: str) -> Any:
+    return http_json("GET", f"{base_url}/batches/latest/summary")
+
+
+def get_batch_summary(base_url: str, batch_id: int) -> Any:
+    return http_json("GET", f"{base_url}/batches/{batch_id}/summary")
+
+
+def fetch_batch_tickets(base_url: str, batch_id: int) -> Dict[str, Any]:
+    return http_json("GET", f"{base_url}/batches/{batch_id}/tickets")
+
+
+def create_batch_in_worker(
+    base_url: str,
+    admin_key: str,
+    batch_key: str,
+    generator_version: str,
+    weights_version_key: Optional[str],
+    tickets: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    body = {
+        "batchKey": batch_key,
+        "generatorVersion": generator_version,
+        "weightsVersionKey": weights_version_key,
+        "tickets": tickets,
+    }
+    return http_json(
+        "POST",
+        f"{base_url}/admin/batches/create",
+        admin_key=admin_key,
+        body_obj=body,
+    )
+
+
+def import_batch_results(
+    base_url: str,
+    admin_key: str,
+    batch_id: int,
+    draw_id: str,
+    prize_table: str,
+    results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    body = {
+        "drawId": draw_id,
+        "prizeTable": prize_table,
+        "results": results,
+    }
+    return http_json(
+        "POST",
+        f"{base_url}/admin/batches/{batch_id}/results/import",
+        admin_key=admin_key,
+        body_obj=body,
+    )
 
 
 def generate_python_tickets(
@@ -132,7 +214,6 @@ def generate_python_tickets(
     history_path: Optional[str],
     cluster_target: Optional[int],
 ) -> List[Dict[str, Any]]:
-    # Load dynamic weights/clustering from weights.json
     lg.load_dynamic_weights(weights_path)
 
     rng = lg.random.Random(seed) if seed is not None else lg.random.Random()
@@ -208,58 +289,44 @@ def generate_python_tickets(
     return results
 
 
-def create_batch_in_worker(
+def generate_and_upload(
     base_url: str,
     admin_key: str,
     batch_key: str,
+    count: int,
+    max_common: int,
+    seed: Optional[str],
+    weights_path: str,
+    history_path: Optional[str],
+    cluster_target: Optional[int],
     generator_version: str,
-    weights_version_key: Optional[str],
-    tickets: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    body = {
-        "batchKey": batch_key,
-        "generatorVersion": generator_version,
-        "weightsVersionKey": weights_version_key,
-        "tickets": tickets,
-    }
-    return http_json(
-        "POST",
-        f"{base_url}/admin/batches/create",
+    weights_version_key = get_current_weights_version(base_url)
+    tickets = generate_python_tickets(
+        count=count,
+        max_common=max_common,
+        seed=seed,
+        weights_path=weights_path,
+        history_path=history_path,
+        cluster_target=cluster_target,
+    )
+    return create_batch_in_worker(
+        base_url=base_url,
         admin_key=admin_key,
-        body_obj=body,
+        batch_key=batch_key,
+        generator_version=generator_version,
+        weights_version_key=weights_version_key,
+        tickets=tickets,
     )
 
 
-def fetch_batch_tickets(base_url: str, batch_id: int) -> Dict[str, Any]:
-    return http_json("GET", f"{base_url}/batches/{batch_id}/tickets")
+def resolve_batch_key(batch_key: Optional[str]) -> str:
+    if batch_key and batch_key.strip():
+        return batch_key.strip()
 
-
-def import_batch_results(
-    base_url: str,
-    admin_key: str,
-    batch_id: int,
-    draw_id: str,
-    prize_table: str,
-    results: List[Dict[str, Any]],
-) -> Dict[str, Any]:
-    body = {
-        "drawId": draw_id,
-        "prizeTable": prize_table,
-        "results": results,
-    }
-    return http_json(
-        "POST",
-        f"{base_url}/admin/batches/{batch_id}/results/import",
-        admin_key=admin_key,
-        body_obj=body,
-    )
-
-
-def get_current_weights_version(base_url: str) -> Optional[str]:
-    row = http_json("GET", f"{base_url}/weights/current")
-    if isinstance(row, dict):
-        return row.get("version_key")
-    return None
+    generated = str(uuid.uuid4())
+    print(f"Generated batch key: {generated}")
+    return generated
 
 
 def check_batch_against_latest_draw(
@@ -274,10 +341,6 @@ def check_batch_against_latest_draw(
         raise RuntimeError(f"Unexpected batch tickets response: {batch_payload}")
 
     tickets_rows = batch_payload["tickets"]
-    row_to_ticket_index = {
-        csv_row_number: int(row["ticket_index"])
-        for csv_row_number, row in enumerate(tickets_rows, start=2)
-    }
     latest_draw = validator._load_latest_draw_from_jsonl(draw_history_path)
 
     with tempfile.NamedTemporaryFile(
@@ -309,14 +372,9 @@ def check_batch_against_latest_draw(
         for item in details:
             if "error" in item:
                 continue
-            ticket_index = row_to_ticket_index.get(item["row"])
-            if ticket_index is None:
-                raise RuntimeError(
-                    f"Could not map validator row {item['row']} to a batch ticket index"
-                )
             results_payload.append(
                 {
-                    "ticketIndex": ticket_index,
+                    "ticketIndex": item["row"],
                     "matchCount": item["match_count"],
                     "matchedNumbers": item["matched_numbers"],
                     "strongMatch": item["strong_match"],
@@ -326,17 +384,26 @@ def check_batch_against_latest_draw(
                 }
             )
 
-        res = import_batch_results(
-            base_url=base_url,
-            admin_key=admin_key,
-            batch_id=batch_id,
-            draw_id=str(latest_draw["id"]),
-            prize_table=prize_table,
-            results=results_payload,
-        )
+        try:
+            res = import_batch_results(
+                base_url=base_url,
+                admin_key=admin_key,
+                batch_id=batch_id,
+                draw_id=str(latest_draw["id"]),
+                prize_table=prize_table,
+                results=results_payload,
+            )
+            worker_import = res
+        except RuntimeError as e:
+            if "does not match latest draw" in str(e):
+                print(f"WARNING: Draw sync mismatch - {e}", file=sys.stderr)
+                worker_import = {"error": "draw_sync_mismatch", "message": str(e)}
+            else:
+                raise
+
         return {
             "validation_summary": summary,
-            "worker_import": res,
+            "worker_import": worker_import,
         }
     finally:
         try:
@@ -345,10 +412,21 @@ def check_batch_against_latest_draw(
             pass
 
 
+def print_json(obj: Any) -> None:
+    print(json.dumps(obj, ensure_ascii=False, indent=2))
+
+
+def require_admin_key(value: Optional[str]) -> str:
+    if not value:
+        raise RuntimeError("ADMIN key is required. Pass --admin-key or set WORKER_ADMIN_KEY.")
+    return value
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bridge between Python lottery engine and Cloudflare Worker")
     parser.add_argument("--base-url", default=os.getenv("WORKER_BASE_URL", DEFAULT_BASE_URL))
     parser.add_argument("--admin-key", default=os.getenv("WORKER_ADMIN_KEY"))
+
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_sync = sub.add_parser("sync")
@@ -364,63 +442,124 @@ def main() -> None:
     p_gen.add_argument("--weights-path", default="weights.json")
     p_gen.add_argument("--history-path", default="tickets.csv")
     p_gen.add_argument("--cluster-target", type=int, choices=[1, 2, 3, 4], default=None)
-    p_gen.add_argument("--batch-key", required=True)
+    p_gen.add_argument("--batch-key", default=None)
     p_gen.add_argument("--generator-version", default="python-v1")
 
     p_check = sub.add_parser("check")
-    p_check.add_argument("--batch-id", type=int, required=True)
+    p_check.add_argument("--batch-id", type=int, default=None)
     p_check.add_argument("--draw-history-path", default="draw_history.jsonl")
     p_check.add_argument("--prize-table", default="regular")
 
+    p_summary = sub.add_parser("summary")
+    p_summary.add_argument("--batch-id", type=int, default=None)
+
+    p_full = sub.add_parser("full-cycle")
+    p_full.add_argument("--count", type=int, default=10)
+    p_full.add_argument("--max-common", type=int, default=3)
+    p_full.add_argument("--seed", default=None)
+    p_full.add_argument("--weights-path", default="weights.json")
+    p_full.add_argument("--history-path", default="tickets.csv")
+    p_full.add_argument("--draw-history-path", default="draw_history.jsonl")
+    p_full.add_argument("--cluster-target", type=int, choices=[1, 2, 3, 4], default=None)
+    p_full.add_argument("--batch-key", default=None)
+    p_full.add_argument("--generator-version", default="python-v1")
+    p_full.add_argument("--prize-table", default="regular")
+
     args = parser.parse_args()
 
-    if args.command in ("sync", "generate", "check") and not args.admin_key:
-        print("ADMIN key is required. Pass --admin-key or set WORKER_ADMIN_KEY.")
-        sys.exit(2)
+    try:
+        if args.command == "sync":
+            sync_local_data(
+                auth_path=args.auth_path,
+                token_path=args.token_path,
+                history_path=args.history_path,
+                weights_path=args.weights_path,
+            )
+            return
 
-    if args.command == "sync":
-        sync_draws_and_weights(
-            base_url=args.base_url,
-            admin_key=args.admin_key,
-            auth_path=args.auth_path,
-            token_path=args.token_path,
-            history_path=args.history_path,
-            weights_path=args.weights_path,
-        )
-        return
+        if args.command == "generate":
+            admin_key = require_admin_key(args.admin_key)
+            batch_key = resolve_batch_key(args.batch_key)
+            res = generate_and_upload(
+                base_url=args.base_url,
+                admin_key=admin_key,
+                batch_key=batch_key,
+                count=args.count,
+                max_common=args.max_common,
+                seed=args.seed,
+                weights_path=args.weights_path,
+                history_path=args.history_path,
+                cluster_target=args.cluster_target,
+                generator_version=args.generator_version,
+            )
+            remember_batch(args.base_url, res)
+            print_json(res)
+            return
 
-    if args.command == "generate":
-        weights_version_key = get_current_weights_version(args.base_url)
-        tickets = generate_python_tickets(
-            count=args.count,
-            max_common=args.max_common,
-            seed=args.seed,
-            weights_path=args.weights_path,
-            history_path=args.history_path,
-            cluster_target=args.cluster_target,
-        )
-        res = create_batch_in_worker(
-            base_url=args.base_url,
-            admin_key=args.admin_key,
-            batch_key=args.batch_key,
-            generator_version=args.generator_version,
-            weights_version_key=weights_version_key,
-            tickets=tickets,
-        )
-        print(json.dumps(res, ensure_ascii=False, indent=2))
-        return
+        if args.command == "check":
+            admin_key = require_admin_key(args.admin_key)
+            batch_id = resolve_batch_id(args.batch_id, args.base_url, admin_key)
+            res = check_batch_against_latest_draw(
+                base_url=args.base_url,
+                admin_key=admin_key,
+                batch_id=batch_id,
+                draw_history_path=args.draw_history_path,
+                prize_table=args.prize_table,
+            )
+            print_json(res)
+            return
+        
+        if args.command == "summary":
+            if args.batch_id is None:
+                res = get_latest_batch_summary(args.base_url)
+            else:
+                res = get_batch_summary(args.base_url, args.batch_id)
+            print_json(res)
+            return
 
-    if args.command == "check":
-        res = check_batch_against_latest_draw(
-            base_url=args.base_url,
-            admin_key=args.admin_key,
-            batch_id=args.batch_id,
-            draw_history_path=args.draw_history_path,
-            prize_table=args.prize_table,
-        )
-        print(json.dumps(res, ensure_ascii=False, indent=2))
-        return
+        if args.command == "full-cycle":
+            admin_key = require_admin_key(args.admin_key)
+            batch_key = resolve_batch_key(args.batch_key)
+            created = generate_and_upload(
+                base_url=args.base_url,
+                admin_key=admin_key,
+                batch_key=batch_key,
+                count=args.count,
+                max_common=args.max_common,
+                seed=args.seed,
+                weights_path=args.weights_path,
+                history_path=args.history_path,
+                cluster_target=args.cluster_target,
+                generator_version=args.generator_version,
+            )
 
+            batch = created.get("batch") or {}
+            batch_id = batch.get("id")
+            if not isinstance(batch_id, int):
+                raise RuntimeError(f"Could not determine batch id from create response: {created}")
+
+            checked = check_batch_against_latest_draw(
+                base_url=args.base_url,
+                admin_key=admin_key,
+                batch_id=batch_id,
+                draw_history_path=args.draw_history_path,
+                prize_table=args.prize_table,
+            )
+
+            summary = get_batch_summary(args.base_url, batch_id)
+
+            print_json(
+                {
+                    "created": created,
+                    "checked": checked,
+                    "summary": summary,
+                }
+            )
+            return
+
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
