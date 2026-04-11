@@ -7,12 +7,15 @@ export async function createBatch(
   const result = await db
     .prepare(`
       INSERT INTO ticket_batches
-        (batch_key, status, target_draw_id, generator_version, weights_version_key, ticket_count)
-      VALUES (?, 'generated', ?, ?, ?, ?)
+        (batch_key, status, target_draw_id, target_pais_id, target_draw_at, target_draw_snapshot_json, generator_version, weights_version_key, ticket_count)
+      VALUES (?, 'generated', ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       input.batchKey,
       input.targetDrawId ?? null,
+      input.targetPaisId ?? null,
+      input.targetDrawAt ?? null,
+      input.targetDrawSnapshotJson ?? null,
       input.generatorVersion ?? null,
       input.weightsVersionKey ?? null,
       input.ticketCount,
@@ -43,6 +46,9 @@ export async function getBatchById(
         batch_key,
         status,
         target_draw_id,
+        target_pais_id,
+        target_draw_at,
+        target_draw_snapshot_json,
         generator_version,
         weights_version_key,
         ticket_count,
@@ -70,6 +76,9 @@ export async function getLatestBatch(
         batch_key,
         status,
         target_draw_id,
+        target_pais_id,
+        target_draw_at,
+        target_draw_snapshot_json,
         generator_version,
         weights_version_key,
         ticket_count,
@@ -96,6 +105,9 @@ export async function getLatestGeneratedBatch(
         batch_key,
         status,
         target_draw_id,
+        target_pais_id,
+        target_draw_at,
+        target_draw_snapshot_json,
         generator_version,
         weights_version_key,
         ticket_count,
@@ -152,6 +164,9 @@ export async function getBatches(
       batch_key,
       status,
       target_draw_id,
+      target_pais_id,
+      target_draw_at,
+      target_draw_snapshot_json,
       generator_version,
       weights_version_key,
       ticket_count,

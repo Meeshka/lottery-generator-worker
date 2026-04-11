@@ -22,6 +22,9 @@ import {
 interface CreateBatchRequestBody {
   batchKey: string;
   targetDrawId?: string | null;
+  targetPaisId?: string | null;
+  targetDrawAt?: string | null;
+  targetDrawSnapshotJson?: string | null;
   generatorVersion?: string | null;
   weightsVersionKey?: string | null;
   tickets: TicketInput[];
@@ -81,6 +84,9 @@ export async function handleAdminRoute(
       const created = await createBatchWithTickets(env.DB, {
         batchKey: body.batchKey,
         targetDrawId: body.targetDrawId ?? null,
+        targetPaisId: body.targetPaisId ?? null,
+        targetDrawAt: body.targetDrawAt ?? null,
+        targetDrawSnapshotJson: body.targetDrawSnapshotJson ?? null,
         generatorVersion: body.generatorVersion ?? null,
         weightsVersionKey: body.weightsVersionKey ?? null,
         tickets: body.tickets ?? [],
