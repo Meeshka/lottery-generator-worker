@@ -74,7 +74,10 @@ python bridge.py full-cycle --batch-key batch-2026-04-10 --check-latest
 Notes:
 
 - `generate` generates tickets and immediately saves the batch in the Worker.
-- `generate` automatically fetches the next open draw from pais.co.il and includes its `LotteryNumber` as `targetDrawId` in the batch creation request.
+- `generate` automatically fetches the next open draw from pais.co.il and includes:
+  - `LotteryNumber` as both `targetDrawId` and `targetPaisId`
+  - `nextLottoryDate` as `targetDrawAt`
+  - the entire draw object as `targetDrawSnapshotJson`
 - if `--batch-key` is omitted, `generate` and `full-cycle` create a UUID batch key automatically.
 - `sync` updates only local `draw_history.jsonl` and `weights.json`; it does not import draws into the Worker DB.
 - `sync` also backfills `paisId` values in existing history records when new data includes them.
@@ -163,6 +166,9 @@ Request body:
 {
   "batchKey": "batch-2026-04-09",
   "targetDrawId": "1234",
+  "targetPaisId": "1234",
+  "targetDrawAt": "2026-04-10T20:00:00Z",
+  "targetDrawSnapshotJson": "{\"LotteryNumber\":1234,\"nextLottoryDate\":\"2026-04-10T20:00:00Z\",...}",
   "generatorVersion": "v1",
   "weightsVersionKey": "weights-2026-04-08",
   "tickets": [

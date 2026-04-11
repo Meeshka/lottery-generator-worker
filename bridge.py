@@ -140,6 +140,9 @@ def create_batch_in_worker(
     weights_version_key: Optional[str],
     tickets: List[Dict[str, Any]],
     target_draw_id: Optional[int] = None,
+    target_pais_id: Optional[str] = None,
+    target_draw_at: Optional[str] = None,
+    target_draw_snapshot_json: Optional[str] = None,
 ) -> Dict[str, Any]:
     body = {
         "batchKey": batch_key,
@@ -149,6 +152,12 @@ def create_batch_in_worker(
     }
     if target_draw_id is not None:
         body["targetDrawId"] = target_draw_id
+    if target_pais_id is not None:
+        body["targetPaisId"] = target_pais_id
+    if target_draw_at is not None:
+        body["targetDrawAt"] = target_draw_at
+    if target_draw_snapshot_json is not None:
+        body["targetDrawSnapshotJson"] = target_draw_snapshot_json
     return http_json(
         "POST",
         f"{base_url}/admin/batches/create",
@@ -275,6 +284,9 @@ def generate_and_upload(
 ) -> Dict[str, Any]:
     open_draw = lotto_api.get_open_lottosheli_draw()
     target_draw_id = open_draw.get("LotteryNumber")
+    target_pais_id = open_draw.get("LotteryNumber")
+    target_draw_at = open_draw.get("nextLottoryDate")
+    target_draw_snapshot_json = json.dumps(open_draw)
     
     weights_version_key = get_current_weights_version(base_url)
     tickets = generate_python_tickets(
@@ -293,6 +305,9 @@ def generate_and_upload(
         weights_version_key=weights_version_key,
         tickets=tickets,
         target_draw_id=target_draw_id,
+        target_pais_id=target_pais_id,
+        target_draw_at=target_draw_at,
+        target_draw_snapshot_json=target_draw_snapshot_json,
     )
 
 

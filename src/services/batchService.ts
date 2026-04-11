@@ -5,6 +5,9 @@ import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo"
 export interface CreateBatchWithTicketsInput {
   batchKey: string;
   targetDrawId?: string | null;
+  targetPaisId?: string | null;
+  targetDrawAt?: string | null;
+  targetDrawSnapshotJson?: string | null;
   generatorVersion?: string | null;
   weightsVersionKey?: string | null;
   tickets: TicketInput[];
@@ -60,6 +63,9 @@ export async function createBatchWithTickets(
   const createInput: CreateBatchInput = {
     batchKey: input.batchKey.trim(),
     targetDrawId: input.targetDrawId ?? null,
+    targetPaisId: input.targetPaisId ?? null,
+    targetDrawAt: input.targetDrawAt ?? null,
+    targetDrawSnapshotJson: input.targetDrawSnapshotJson ?? null,
     generatorVersion: input.generatorVersion ?? null,
     weightsVersionKey: input.weightsVersionKey ?? null,
     ticketCount: input.tickets.length,
