@@ -84,6 +84,9 @@ def update_history_and_weights(
     added = draw_history.append_new_draws_jsonl(history_path, draws)
     print(f"Добавлено новых тиражей в историю: {added} -> {history_path}")
 
+    backfilled = draw_history.backfill_pais_ids_jsonl(history_path, draws)
+    print(f"Обновлено paisId в существующей истории: {backfilled} -> {history_path}")
+
     all_draws = draw_history.load_history(history_path)
     w = weights.compute_all_weights(all_draws)
     _save_json(weights_path, w)

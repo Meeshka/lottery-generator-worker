@@ -128,6 +128,7 @@ def fetch_draws(access_token: str, include_tables: bool = True) -> List[Dict[str
         if not isinstance(item, dict):
             continue
         draw_id = item.get("id")
+        pais_id = item.get("paisId")
         ends_at = item.get("endsAt")
         results = item.get("results") or {}
         numbers = results.get("numbers")
@@ -139,9 +140,12 @@ def fetch_draws(access_token: str, include_tables: bool = True) -> List[Dict[str
             continue
         if not isinstance(strong, int):
             continue
+        if pais_id is not None and not isinstance(pais_id, int):
+            continue
 
         norm: Dict[str, Any] = {
             "id": draw_id,
+            "paisId": pais_id,
             "endsAt": ends_at,
             "numbers": numbers,
             "strong": strong,
@@ -160,3 +164,46 @@ def fetch_draws(access_token: str, include_tables: bool = True) -> List[Dict[str
     # sort newest first
     out.sort(key=lambda d: (d.get("endsAt") or "", d["id"]), reverse=True)
     return out
+
+
+def get_open_lottosheli_draw() -> dict:
+    """
+    Fetches the next lottery draw information from pais.co.il.
+    
+    Returns:
+        dict: Dictionary containing draw information with keys:
+            - nextLottoryDate: str
+            - displayDate: str
+            - displayTime: str
+            - firstPrize: int
+            - secondPrize: int
+            - LotteryNumber: int
+    """
+    url = "https://www.pais.co.il/include/getNextLotteryDate.ashx?type=1"
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "lotto-script/1.0",
+    }
+    
+    req = urllib.request.Request(url=url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            if not raw:
+                raise LottoAPIError("Empty response from pais.co.il")
+            data = json.loads(raw)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            msg = str(e)
+        raise LottoAPIError(f"HTTP {e.code} {e.reason}: {msg}")
+    except urllib.error.URLError as e:
+        raise LottoAPIError(f"URL error: {e}")
+    except json.JSONDecodeError as e:
+        raise LottoAPIError(f"JSON decode error: {e}")
+    
+    if not isinstance(data, list) or len(data) == 0:
+        raise LottoAPIError(f"Unexpected response format: {data}")
+    
+    return data[0]

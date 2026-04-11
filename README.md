@@ -35,7 +35,7 @@ This worker assumes these tables already exist:
 - `tickets`
 - `ticket_results`
 
-The code reads and writes fields such as `draw_id`, `draw_date`, `weights_json`, `batch_key`, `status`, `ticket_count`, `numbers_json`, `strong_number`, `match_count`, `matched_numbers_json`, `qualifies_3plus`, `prize`, and `prize_table`.
+The code reads and writes fields such as `draw_id`, `draw_date`, `pais_id`, `weights_json`, `batch_key`, `status`, `ticket_count`, `numbers_json`, `strong_number`, `match_count`, `matched_numbers_json`, `qualifies_3plus`, `prize`, and `prize_table`.
 
 ## Local development
 
@@ -74,8 +74,10 @@ python bridge.py full-cycle --batch-key batch-2026-04-10 --check-latest
 Notes:
 
 - `generate` generates tickets and immediately saves the batch in the Worker.
+- `generate` automatically fetches the next open draw from pais.co.il and includes its `LotteryNumber` as `targetDrawId` in the batch creation request.
 - if `--batch-key` is omitted, `generate` and `full-cycle` create a UUID batch key automatically.
 - `sync` updates only local `draw_history.jsonl` and `weights.json`; it does not import draws into the Worker DB.
+- `sync` also backfills `paisId` values in existing history records when new data includes them.
 - `check-latest` validates the latest generated batch by default; `--batch-id` can be used to override the batch selection.
 - `check-latest` uses the latest draw currently stored in the Worker DB and matches it against the same draw inside local `draw_history.jsonl`.
 - `check` remains available as a backward-compatible alias for `check-latest`.
