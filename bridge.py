@@ -14,6 +14,7 @@ import urllib.request
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
+import draw_history
 import lottery_generator as lg
 import lotto_api
 import lotto_update
@@ -95,7 +96,42 @@ def write_tickets_csv(path: str, tickets: List[Dict[str, Any]]) -> None:
             writer.writerow(nums + [strong if strong is not None else ""])
 
 
+def import_draws_to_worker(
+    base_url: str,
+    admin_key: str,
+    history_path: str,
+) -> Dict[str, Any]:
+    draws = draw_history.load_history(history_path)
+    
+    draw_inputs = []
+    for draw in draws:
+        draw_id = str(draw.get("id", ""))
+        ends_at = draw.get("endsAt", "")
+        numbers = draw.get("numbers", [])
+        strong = draw.get("strong")
+        pais_id = draw.get("paisId")
+        
+        draw_inputs.append({
+            "drawId": draw_id,
+            "drawDate": ends_at,
+            "numbersJson": json.dumps(numbers),
+            "strongNumber": strong,
+            "rawJson": json.dumps(draw),
+            "paisId": pais_id,
+        })
+    
+    body = {"draws": draw_inputs}
+    return http_json(
+        "POST",
+        f"{base_url}/admin/import/draws",
+        admin_key=admin_key,
+        body_obj=body,
+    )
+
+
 def sync_local_data(
+    base_url: str,
+    admin_key: str,
     auth_path: str,
     token_path: str,
     history_path: str,
@@ -109,6 +145,9 @@ def sync_local_data(
     )
     print(f"Updated local history: {history_path}")
     print(f"Updated local weights: {weights_path}")
+    
+    res = import_draws_to_worker(base_url, admin_key, history_path)
+    print(f"Imported draws to Worker: {res.get('count', 0)} draws")
 
 
 def get_current_weights_version(base_url: str) -> Optional[str]:
@@ -467,7 +506,10 @@ def main() -> None:
 
     try:
         if args.command == "sync":
+            admin_key = require_admin_key(args.admin_key)
             sync_local_data(
+                base_url=args.base_url,
+                admin_key=admin_key,
                 auth_path=args.auth_path,
                 token_path=args.token_path,
                 history_path=args.history_path,

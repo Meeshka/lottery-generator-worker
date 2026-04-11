@@ -163,6 +163,7 @@ python bridge.py full-cycle --batch-key batch-2026-04-10
 - `--token-path`: Path to token.json (default: token.json)
 - `--history-path`: Path to draw_history.jsonl (default: draw_history.jsonl)
 - `--weights-path`: Path to weights.json (default: weights.json)
+- Requires `--admin-key` or `WORKER_ADMIN_KEY` environment variable
 
 **generate**:
 - `--count`: Number of tickets to generate (default: 10)
