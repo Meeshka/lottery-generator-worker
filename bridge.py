@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import lottery_generator as lg
+import lotto_api
 import lotto_update
 import validate_updated as validator
 
@@ -138,6 +139,7 @@ def create_batch_in_worker(
     generator_version: str,
     weights_version_key: Optional[str],
     tickets: List[Dict[str, Any]],
+    target_draw_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     body = {
         "batchKey": batch_key,
@@ -145,6 +147,8 @@ def create_batch_in_worker(
         "weightsVersionKey": weights_version_key,
         "tickets": tickets,
     }
+    if target_draw_id is not None:
+        body["targetDrawId"] = target_draw_id
     return http_json(
         "POST",
         f"{base_url}/admin/batches/create",
@@ -269,6 +273,9 @@ def generate_and_upload(
     cluster_target: Optional[int],
     generator_version: str,
 ) -> Dict[str, Any]:
+    open_draw = lotto_api.get_open_lottosheli_draw()
+    target_draw_id = open_draw.get("LotteryNumber")
+    
     weights_version_key = get_current_weights_version(base_url)
     tickets = generate_python_tickets(
         count=count,
@@ -285,6 +292,7 @@ def generate_and_upload(
         generator_version=generator_version,
         weights_version_key=weights_version_key,
         tickets=tickets,
+        target_draw_id=target_draw_id,
     )
 
 

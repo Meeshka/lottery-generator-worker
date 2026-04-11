@@ -68,3 +68,49 @@ def append_new_draws_jsonl(path: str, draws: Iterable[Dict[str, Any]]) -> int:
             added += 1
 
     return added
+
+def backfill_pais_ids_jsonl(path: str, draws: Iterable[Dict[str, Any]]) -> int:
+    """
+    Обновляет существующие записи в JSONL, добавляя paisId по совпадающему id.
+    Возвращает количество изменённых строк.
+    """
+    if not path or not os.path.exists(path):
+        return 0
+
+    id_to_pais: Dict[int, int] = {}
+    for draw in draws:
+        draw_id = draw.get("id")
+        pais_id = draw.get("paisId")
+        if isinstance(draw_id, int) and isinstance(pais_id, int):
+            id_to_pais[draw_id] = pais_id
+
+    if not id_to_pais:
+        return 0
+
+    rows: List[Dict[str, Any]] = []
+    changed = 0
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+
+            if isinstance(obj, dict) and isinstance(obj.get("id"), int):
+                draw_id = obj["id"]
+                pais_id = id_to_pais.get(draw_id)
+                if isinstance(pais_id, int) and obj.get("paisId") != pais_id:
+                    obj["paisId"] = pais_id
+                    changed += 1
+
+            rows.append(obj)
+
+    with open(path, "w", encoding="utf-8") as f:
+        for obj in rows:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+    return changed
