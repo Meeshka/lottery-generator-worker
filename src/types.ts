@@ -8,7 +8,7 @@ export type BatchStatus = "generated" | "checked" | "archived";
 export interface CreateBatchInput {
   batchKey: string;
   targetDrawId?: string | null;
-  targetPaisId?: string | null;
+  targetPaisId?: number | null;
   targetDrawAt?: string | null;
   targetDrawSnapshotJson?: string | null;
   generatorVersion?: string | null;
@@ -21,7 +21,7 @@ export interface BatchRow {
   batch_key: string;
   status: BatchStatus;
   target_draw_id: string | null;
-  target_pais_id: string | null;
+  target_pais_id: number | null;
   target_draw_at: string | null;
   target_draw_snapshot_json: string | null;
   generator_version: string | null;

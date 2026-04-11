@@ -22,7 +22,7 @@ import {
 interface CreateBatchRequestBody {
   batchKey: string;
   targetDrawId?: string | null;
-  targetPaisId?: string | null;
+  targetPaisId?: number | null;
   targetDrawAt?: string | null;
   targetDrawSnapshotJson?: string | null;
   generatorVersion?: string | null;
