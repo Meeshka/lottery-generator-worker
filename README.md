@@ -47,7 +47,8 @@ CREATE TABLE draws (
   draw_date TEXT,
   numbers_json TEXT,
   strong_number INTEGER,
-  raw_json TEXT
+  raw_json TEXT,
+  pais_id INTEGER
 );
 ```
 

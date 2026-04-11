@@ -13,8 +13,6 @@ import urllib.error
 import urllib.request
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime, timezone
-from pathlib import Path
 
 import lottery_generator as lg
 import lotto_api
@@ -139,8 +137,8 @@ def create_batch_in_worker(
     generator_version: str,
     weights_version_key: Optional[str],
     tickets: List[Dict[str, Any]],
-    target_draw_id: Optional[int] = None,
-    target_pais_id: Optional[str] = None,
+    target_draw_id: Optional[str] = None,
+    target_pais_id: Optional[int] = None,
     target_draw_at: Optional[str] = None,
     target_draw_snapshot_json: Optional[str] = None,
 ) -> Dict[str, Any]:
