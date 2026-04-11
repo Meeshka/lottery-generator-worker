@@ -5,7 +5,7 @@ import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo"
 export interface CreateBatchWithTicketsInput {
   batchKey: string;
   targetDrawId?: string | null;
-  targetPaisId?: string | null;
+  targetPaisId?: number | null;
   targetDrawAt?: string | null;
   targetDrawSnapshotJson?: string | null;
   generatorVersion?: string | null;

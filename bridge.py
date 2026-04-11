@@ -283,7 +283,7 @@ def generate_and_upload(
     generator_version: str,
 ) -> Dict[str, Any]:
     open_draw = lotto_api.get_open_lottosheli_draw()
-    target_draw_id = open_draw.get("LotteryNumber")
+    target_draw_id = None
     target_pais_id = open_draw.get("LotteryNumber")
     target_draw_at = open_draw.get("nextLottoryDate")
     target_draw_snapshot_json = json.dumps(open_draw)
