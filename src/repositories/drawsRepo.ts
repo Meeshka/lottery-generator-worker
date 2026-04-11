@@ -113,3 +113,60 @@ export async function insertDraw(
 
   return row;
 }
+
+export async function upsertDraw(
+  db: D1Database,
+  input: {
+    drawId: string;
+    drawDate: string;
+    numbersJson: string;
+    strongNumber: number | null;
+    rawJson: string | null;
+    paisId: number | null;
+  },
+): Promise<DrawRow> {
+  const result = await db
+    .prepare(`
+      INSERT OR REPLACE INTO draws
+        (draw_id, draw_date, numbers_json, strong_number, raw_json, pais_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    .bind(
+      input.drawId,
+      input.drawDate,
+      input.numbersJson,
+      input.strongNumber,
+      input.rawJson,
+      input.paisId,
+    )
+    .run();
+
+  const drawId = result.meta.last_row_id;
+  if (!drawId) {
+    throw new Error("Failed to upsert draw");
+  }
+
+  const row = await db
+    .prepare(`
+      SELECT
+        id,
+        draw_id,
+        draw_date,
+        numbers_json,
+        strong_number,
+        raw_json,
+        pais_id,
+        created_at
+      FROM draws
+      WHERE id = ?
+      LIMIT 1
+    `)
+    .bind(Number(drawId))
+    .first<DrawRow>();
+
+  if (!row) {
+    throw new Error("Draw upserted but could not be reloaded");
+  }
+
+  return row;
+}

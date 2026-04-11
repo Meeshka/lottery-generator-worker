@@ -70,3 +70,12 @@ export interface TicketResultRow {
   prize_table: string | null;
   checked_at: string;
 }
+
+export interface DrawInput {
+  drawId: string;
+  drawDate: string;
+  numbersJson: string;
+  strongNumber: number | null;
+  rawJson: string | null;
+  paisId: number | null;
+}

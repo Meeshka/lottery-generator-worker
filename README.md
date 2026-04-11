@@ -195,7 +195,7 @@ python bridge.py full-cycle --batch-key batch-2026-04-10
   - the entire draw object as `targetDrawSnapshotJson`
 - `--cluster-target` targets a specific cluster centroid from weights.json for ticket distribution.
 - if `--batch-key` is omitted, `generate` and `full-cycle` create a UUID batch key automatically.
-- `sync` updates only local `draw_history.jsonl` and `weights.json`; it does not import draws into the Worker DB.
+- `sync` updates local `draw_history.jsonl` and `weights.json`, then imports draws into the Worker DB via `/admin/import/draws`.
 - `sync` also backfills `paisId` values in existing history records when new data includes them.
 - `check` validates the latest generated batch by default; `--batch-id` can be used to override the batch selection.
 - `check` uses the latest draw currently stored in the Worker DB and matches it against the same draw inside local `draw_history.jsonl`.
@@ -274,6 +274,39 @@ Admin routes require header:
 ```http
 x-admin-key: <ADMIN_KEY>
 ```
+
+#### `POST /admin/import/draws`
+
+Imports or updates draw data from the local bridge sync. This endpoint is idempotent - calling it multiple times with the same `draw_id` will replace the existing record.
+
+Request body:
+
+```json
+{
+  "draws": [
+    {
+      "drawId": "1234",
+      "drawDate": "2026-04-10T20:00:00Z",
+      "numbersJson": "[1, 5, 9, 12, 26, 37]",
+      "strongNumber": 4,
+      "rawJson": "{\"LotteryNumber\":1234,...}",
+      "paisId": 1234
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "count": 1,
+  "draws": [...]
+}
+```
+
+This endpoint is used by the `bridge.py sync` command to keep the Worker DB in sync with local `draw_history.jsonl`.
 
 #### `POST /admin/batches/create`
 
