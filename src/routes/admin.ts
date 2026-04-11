@@ -1,4 +1,4 @@
-import type { Env, TicketInput, TicketResultInput } from "../types";
+import type { Env, TicketInput, TicketResultInput, DrawInput } from "../types";
 import { readJsonBody } from "../utils/json";
 import {
   badRequestResponse,
@@ -18,6 +18,7 @@ import {
   getBatchResults,
   importBatchResults,
 } from "../services/resultService";
+import { upsertDraw } from "../repositories/drawsRepo";
 
 interface CreateBatchRequestBody {
   batchKey: string;
@@ -34,6 +35,10 @@ interface ImportResultsRequestBody {
   drawId?: string | null;
   prizeTable?: string | null;
   results: TicketResultInput[];
+}
+
+interface ImportDrawsRequestBody {
+  draws: DrawInput[];
 }
 
 function isAdmin(request: Request, env: Env): boolean {
@@ -96,6 +101,36 @@ export async function handleAdminRoute(
         ok: true,
         batch: created.batch,
         tickets: created.tickets,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/import/draws" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<ImportDrawsRequestBody>(request);
+
+      const draws = body.draws ?? [];
+      const upsertedDraws = await Promise.all(
+        draws.map((draw) =>
+          upsertDraw(env.DB, {
+            drawId: draw.drawId,
+            drawDate: draw.drawDate,
+            numbersJson: draw.numbersJson,
+            strongNumber: draw.strongNumber ?? null,
+            rawJson: draw.rawJson ?? null,
+            paisId: draw.paisId ?? null,
+          }),
+        ),
+      );
+
+      return jsonResponse({
+        ok: true,
+        count: upsertedDraws.length,
+        draws: upsertedDraws,
       });
     } catch (error) {
       return badRequestResponse(
