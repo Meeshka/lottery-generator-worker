@@ -17,6 +17,9 @@ export interface LatestBatchSummary {
   ticketsWith3Plus: number;
   totalPrize: number;
   drawDbId: number | null;
+  targetPaisId: number | null;
+  matchedDrawFound: boolean;
+  matchedDrawId: number | null;
 }
 
 export async function getOverview(db: D1Database): Promise<OverviewData> {
@@ -51,12 +54,16 @@ export async function getOverview(db: D1Database): Promise<OverviewData> {
         b.status,
         b.ticket_count as ticketCount,
         b.target_draw_id as drawDbId,
+        b.target_pais_id as targetPaisId,
         COUNT(tr.id) as checkedResultsCount,
         SUM(CASE WHEN tr.qualifies_3plus = 1 THEN 1 ELSE 0 END) as ticketsWith3Plus,
-        COALESCE(SUM(tr.prize), 0) as totalPrize
+        COALESCE(SUM(tr.prize), 0) as totalPrize,
+        CASE WHEN d.id IS NOT NULL THEN 1 ELSE 0 END as matchedDrawFound,
+        d.id as matchedDrawId
       FROM ticket_batches b
       LEFT JOIN tickets t ON t.batch_id = b.id
       LEFT JOIN ticket_results tr ON tr.ticket_id = t.id
+      LEFT JOIN draws d ON d.pais_id = b.target_pais_id
       WHERE b.deleted_at IS NULL
       GROUP BY b.id
       ORDER BY b.created_at DESC, b.id DESC
