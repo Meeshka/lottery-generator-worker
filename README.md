@@ -11,11 +11,11 @@ Cloudflare Worker API for storing generated lottery ticket batches, exposing rea
 
 ## Runtime
 
-- Cloudflare Workers
+- Cloudflare Workers (TypeScript + Python Workers)
 - Cloudflare D1
 - TypeScript
+- Python 3.12+ (for Python Worker engine and bridge CLI)
 - Wrangler
-- Python 3.x (for bridge CLI)
 
 ## Required configuration
 
@@ -133,6 +133,13 @@ Install Python dependencies for the bridge CLI:
 # No additional pip packages required
 ```
 
+For the Python Worker engine, install dependencies:
+
+```bash
+cd py-engine
+pip install workers-py workers-runtime-sdk
+```
+
 Run locally:
 
 ```bash
@@ -143,6 +150,13 @@ Deploy:
 
 ```bash
 npm run deploy
+```
+
+Deploy Python Worker:
+
+```bash
+cd py-engine
+npx wrangler deploy
 ```
 
 ## Python bridge CLI
@@ -218,6 +232,33 @@ All responses are JSON. Common error responses:
 - `404` for unknown routes or missing batch resources
 
 ### Public endpoints
+
+#### `GET /`
+
+Python Worker entry point for generating lottery tickets.
+
+Request body:
+
+```json
+{
+  "count": 10,
+  "seed": "optional-seed"
+}
+```
+
+Response:
+
+```json
+[
+  {
+    "numbers": [1, 5, 9, 12, 26, 37],
+    "control": 4
+  }
+]
+```
+
+- `count`: Number of tickets to generate (default: 10)
+- `seed`: Optional random seed for reproducibility
 
 #### `GET /health`
 
@@ -487,6 +528,23 @@ src/
     ├── json.ts           # JSON body parsing
     ├── lottoApi.ts       # External Lotto API client
     └── response.ts       # Response helpers
+
+py-engine/                # Python Worker engine
+├── pyproject.toml        # Python project configuration
+├── wrangler.jsonc        # Cloudflare Workers configuration
+├── data/                 # Data files
+│   ├── draw_history.jsonl
+│   └── weights.json
+└── src/                  # Python source files
+    ├── entry.py          # Python Worker entry point
+    ├── draw_clustering.py
+    ├── draw_history.py
+    ├── lottery_generator.py
+    ├── lotto_api.py
+    ├── lotto_update.py
+    ├── validate.py
+    ├── validate_updated.py
+    └── weights.py
 ```
 
 ## Notes

@@ -553,7 +553,7 @@ def main():
         
         # Fallback: compute clustering from draw_history.jsonl
         elif CLUSTERING_AVAILABLE:
-            draw_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "draw_history.jsonl")
+            draw_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/draw_history.jsonl")
             if os.path.exists(draw_path):
                 draws = draw_clustering.load_draws_for_clustering(draw_path)
                 if len(draws) >= 4:

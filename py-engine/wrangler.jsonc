@@ -1,0 +1,6 @@
+{
+  "name": "lottery-generator-python-engine",
+  "main": "src/entry.py",
+  "compatibility_date": "2026-04-12",
+  "compatibility_flags": ["python_workers"]
+}
