@@ -233,7 +233,7 @@ All responses are JSON. Common error responses:
 
 ### Public endpoints
 
-#### `GET /`
+#### `POST /`
 
 Python Worker entry point for generating lottery tickets.
 
@@ -242,23 +242,41 @@ Request body:
 ```json
 {
   "count": 10,
-  "seed": "optional-seed"
+  "maxCommon": 3,
+  "seed": "optional-seed",
+  "clusterTarget": 1
 }
 ```
 
-Response:
+Response (success):
 
 ```json
-[
-  {
-    "numbers": [1, 5, 9, 12, 26, 37],
-    "control": 4
-  }
-]
+{
+  "ok": true,
+  "tickets": [
+    {
+      "ticketIndex": 1,
+      "numbers": [1, 5, 9, 12, 26, 37],
+      "strong": 4
+    }
+  ],
+  "count": 1
+}
 ```
 
-- `count`: Number of tickets to generate (default: 10)
+Response (error):
+
+```json
+{
+  "ok": false,
+  "error": "error message"
+}
+```
+
+- `count`: Number of tickets to generate (default: 10, must be >= 1)
+- `maxCommon`: Maximum allowed common numbers with history/current batch (default: 3)
 - `seed`: Optional random seed for reproducibility
+- `clusterTarget`: Optional target cluster ID (1-4) for distribution-based generation
 
 #### `GET /health`
 
