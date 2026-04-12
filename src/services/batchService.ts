@@ -1,8 +1,29 @@
-import type {BatchRow, BatchStatus, CreateBatchInput, TicketInput, TicketRow} from "../types";
-import { createBatch, getBatchById, getLatestBatch, getLatestGeneratedBatch, archiveBatch, markBatchChecked, getBatches as getBatchesRepo, markBatchSubmitted, markBatchConfirmed, touchSyncAttempt, saveSyncError } from "../repositories/batchesRepo";
+import type {
+  BatchRow,
+  BatchStatus,
+  CreateBatchInput,
+  TicketInput,
+  TicketRow,
+} from "../types";
+import {
+  createBatch,
+  getBatchById,
+  getLatestBatch,
+  getLatestGeneratedBatch,
+  archiveBatch,
+  markBatchChecked,
+  getBatches as getBatchesRepo,
+  markBatchSubmitted,
+  markBatchConfirmed,
+  touchSyncAttempt,
+  saveSyncError,
+} from "../repositories/batchesRepo";
 import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo";
-import { fetchActiveTickets, ticketsMatch, type LottoTicketRecord } from "../utils/lottoApi";
-import { getDrawByPaisId } from "../repositories/drawsRepo";
+import {
+  fetchActiveTickets,
+  ticketsMatch,
+  type LottoTicketRecord,
+} from "../utils/lottoApi";
 
 export interface CreateBatchWithTicketsInput {
   batchKey: string;
@@ -52,6 +73,45 @@ function validateTicketInput(ticket: TicketInput): void {
   ) {
     throw new Error(`Ticket ${ticket.ticketIndex}: strong must be in range 1..7`);
   }
+}
+
+function normalizeLocalTables(tickets: TicketRow[]): number[][] {
+  return tickets.map((ticket) => {
+    const numbers = JSON.parse(ticket.numbers_json) as number[];
+    const sortedNumbers = [...numbers].map(Number).sort((a, b) => a - b);
+
+    return ticket.strong_number !== null && ticket.strong_number !== undefined
+      ? [...sortedNumbers, Number(ticket.strong_number)]
+      : sortedNumbers;
+  });
+}
+
+function chooseBestCandidate(
+  candidates: LottoTicketRecord[],
+  submittedAt: string | null,
+): LottoTicketRecord {
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  if (submittedAt) {
+    const submittedTime = new Date(submittedAt).getTime();
+
+    candidates.sort((a, b) => {
+      const timeA = a.purchasedAt
+        ? Math.abs(new Date(a.purchasedAt).getTime() - submittedTime)
+        : Number.POSITIVE_INFINITY;
+      const timeB = b.purchasedAt
+        ? Math.abs(new Date(b.purchasedAt).getTime() - submittedTime)
+        : Number.POSITIVE_INFINITY;
+
+      return timeA - timeB;
+    });
+
+    return candidates[0];
+  }
+
+  return candidates[0];
 }
 
 export async function createBatchWithTickets(
@@ -133,6 +193,7 @@ export async function markBatchAsChecked(
 ): Promise<void> {
   await markBatchChecked(db, batchId);
 }
+
 export async function getBatches(
   db: D1Database,
   options?: { limit?: number; status?: string },
@@ -149,9 +210,11 @@ export async function markBatchAsSubmitted(
     throw new Error(`Batch ${batchId} not found`);
   }
 
-  const allowedStatuses: BatchStatus[] = ["checked", "submitted"];
+  const allowedStatuses: BatchStatus[] = ["generated", "submitted"];
   if (!allowedStatuses.includes(batch.status)) {
-    throw new Error(`Batch ${batchId} has status '${batch.status}', cannot transition to submitted`);
+    throw new Error(
+      `Batch ${batchId} has status '${batch.status}', cannot transition to submitted`,
+    );
   }
 
   if (batch.status === "submitted") {
@@ -171,6 +234,17 @@ export async function syncBatchConfirmation(
   batchId: number,
   otpToken: string,
 ): Promise<SyncConfirmationResult> {
+  const normalizedToken = otpToken?.trim();
+  if (!normalizedToken) {
+    return {
+      success: false,
+      matched: false,
+      batch: null,
+      externalTicketId: null,
+      error: "OTP token is required",
+    };
+  }
+
   const batch = await getBatchById(db, batchId);
   if (!batch) {
     return {
@@ -182,50 +256,63 @@ export async function syncBatchConfirmation(
     };
   }
 
+  const allowedStatuses: BatchStatus[] = ["submitted", "confirmed"];
+  if (!allowedStatuses.includes(batch.status)) {
+    return {
+      success: false,
+      matched: false,
+      batch,
+      externalTicketId: null,
+      error: `Batch ${batchId} has status '${batch.status}', sync-confirmation requires submitted or confirmed`,
+    };
+  }
+
   const tickets = await getTicketsByBatchId(db, batchId);
-  
+  if (!tickets.length) {
+    return {
+      success: false,
+      matched: false,
+      batch,
+      externalTicketId: null,
+      error: `Batch ${batchId} has no tickets`,
+    };
+  }
+
   await touchSyncAttempt(db, batchId);
 
   try {
-    const response = await fetchActiveTickets(otpToken);
+    const response = await fetchActiveTickets(normalizedToken, 0, 100);
     const externalTickets = response.tickets;
-
-    const localTables = tickets.map(t => {
-      const numbers = JSON.parse(t.numbers_json) as number[];
-      return t.strong_number ? [...numbers, t.strong_number] : numbers;
-    });
+    const localTables = normalizeLocalTables(tickets);
 
     let matchedRecord: LottoTicketRecord | null = null;
 
     if (batch.external_ticket_id) {
-      matchedRecord = externalTickets.find(t => t.id === batch.external_ticket_id) || null;
+      matchedRecord =
+        externalTickets.find((record) => record.id === batch.external_ticket_id) ?? null;
     }
 
     if (!matchedRecord) {
-      const candidates = externalTickets.filter(record => {
+      const candidates = externalTickets.filter((record) => {
         if (record.status !== "BOUGHT") return false;
-        if (record.paisId !== batch.target_pais_id) return false;
-        if (!record.tables || record.tables.length !== localTables.length) return false;
-        
+
+        if (
+          batch.target_pais_id !== null &&
+          batch.target_pais_id !== undefined &&
+          record.paisId !== batch.target_pais_id
+        ) {
+          return false;
+        }
+
+        if (!Array.isArray(record.tables) || record.tables.length !== localTables.length) {
+          return false;
+        }
+
         return ticketsMatch(localTables, record.tables);
       });
 
       if (candidates.length > 0) {
-        if (candidates.length === 1) {
-          matchedRecord = candidates[0];
-        } else {
-          if (batch.submitted_at) {
-            const submittedTime = new Date(batch.submitted_at).getTime();
-            candidates.sort((a, b) => {
-              const timeA = a.purchasedAt ? Math.abs(new Date(a.purchasedAt).getTime() - submittedTime) : Infinity;
-              const timeB = b.purchasedAt ? Math.abs(new Date(b.purchasedAt).getTime() - submittedTime) : Infinity;
-              return timeA - timeB;
-            });
-            matchedRecord = candidates[0];
-          } else {
-            matchedRecord = candidates[0];
-          }
-        }
+        matchedRecord = chooseBestCandidate(candidates, batch.submitted_at);
       }
     }
 
@@ -237,19 +324,21 @@ export async function syncBatchConfirmation(
         batch: updated,
         externalTicketId: matchedRecord.id,
       };
-    } else {
-      await saveSyncError(db, batchId, "No matching ticket found in external system");
-      const updated = await getBatchById(db, batchId);
-      return {
-        success: true,
-        matched: false,
-        batch: updated,
-        externalTicketId: null,
-      };
     }
+
+    await saveSyncError(db, batchId, "No matching ticket found in external system");
+    const updated = await getBatchById(db, batchId);
+
+    return {
+      success: true,
+      matched: false,
+      batch: updated,
+      externalTicketId: null,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     await saveSyncError(db, batchId, errorMessage);
+
     const updated = await getBatchById(db, batchId);
     return {
       success: false,
@@ -272,6 +361,7 @@ export async function submitAndSyncBatchConfirmation(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const batch = await getBatchById(db, batchId);
+
     return {
       success: false,
       matched: false,
