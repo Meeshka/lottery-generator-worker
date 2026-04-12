@@ -317,7 +317,11 @@ export async function syncBatchConfirmation(
     }
 
     if (matchedRecord) {
-      const updated = await markBatchConfirmed(db, batchId, matchedRecord.id);
+      const updated = await markBatchConfirmed(db, batchId, matchedRecord.id, {
+        matchStatus: "full",
+        confirmedPaisId: matchedRecord.paisId,
+        confirmedTotalPrice: matchedRecord.totalPrice,
+      });
       return {
         success: true,
         matched: true,

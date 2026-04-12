@@ -21,6 +21,7 @@ import {
   importBatchResults,
 } from "../services/resultService";
 import { upsertDraw } from "../repositories/drawsRepo";
+import { generateOtp, validateOtp, LottoAuthError } from "../utils/lottoAuth";
 
 interface CreateBatchRequestBody {
   batchKey: string;
@@ -45,6 +46,17 @@ interface ImportDrawsRequestBody {
 
 interface SyncConfirmationRequestBody {
   token: string;
+}
+
+interface GenerateOtpRequestBody {
+  idNumber: string;
+  phoneNumber: string;
+}
+
+interface ValidateOtpRequestBody {
+  idNumber: string;
+  phoneNumber: string;
+  otpCode: string;
 }
 
 function isAdmin(request: Request, env: Env): boolean {
@@ -322,6 +334,53 @@ export async function handleAdminRoute(
         ...syncResult,
       });
     } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/lotto/otp/generate" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<GenerateOtpRequestBody>(request);
+
+      await generateOtp({
+        idNumber: body.idNumber,
+        phoneNumber: body.phoneNumber,
+      });
+
+      return jsonResponse({
+        ok: true,
+      });
+    } catch (error) {
+      if (error instanceof LottoAuthError) {
+        return badRequestResponse(error.message);
+      }
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/lotto/otp/validate" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<ValidateOtpRequestBody>(request);
+
+      const result = await validateOtp({
+        idNumber: body.idNumber,
+        phoneNumber: body.phoneNumber,
+        otpCode: body.otpCode,
+      });
+
+      return jsonResponse({
+        ok: true,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      });
+    } catch (error) {
+      if (error instanceof LottoAuthError) {
+        return badRequestResponse(error.message);
+      }
       return badRequestResponse(
         error instanceof Error ? error.message : String(error),
       );
