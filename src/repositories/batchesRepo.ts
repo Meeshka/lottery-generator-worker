@@ -7,7 +7,17 @@ export async function createBatch(
   const result = await db
     .prepare(`
       INSERT INTO ticket_batches
-        (batch_key, status, target_draw_id, target_pais_id, target_draw_at, target_draw_snapshot_json, generator_version, weights_version_key, ticket_count)
+        (
+          batch_key,
+          status,
+          target_draw_id,
+          target_pais_id,
+          target_draw_at,
+          target_draw_snapshot_json,
+          generator_version,
+          weights_version_key,
+          ticket_count
+        )
       VALUES (?, 'generated', ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
@@ -35,33 +45,41 @@ export async function createBatch(
   return row;
 }
 
+const BASE_BATCH_SELECT = `
+  SELECT
+    id,
+    batch_key,
+    status,
+    target_draw_id,
+    target_pais_id,
+    target_draw_at,
+    target_draw_snapshot_json,
+    generator_version,
+    weights_version_key,
+    ticket_count,
+    created_at,
+    checked_at,
+    submitted_at,
+    confirmed_at,
+    external_sync_at,
+    external_match_status,
+    external_ticket_id,
+    confirmed_pais_id,
+    confirmed_total_price,
+    last_sync_error,
+    sync_attempts,
+    archived_at,
+    deleted_at
+  FROM ticket_batches
+`;
+
 export async function getBatchById(
   db: D1Database,
   batchId: number,
 ): Promise<BatchRow | null> {
   const row = await db
     .prepare(`
-      SELECT
-        id,
-        batch_key,
-        status,
-        target_draw_id,
-        target_pais_id,
-        target_draw_at,
-        target_draw_snapshot_json,
-        generator_version,
-        weights_version_key,
-        ticket_count,
-        created_at,
-        checked_at,
-        submitted_at,
-        confirmed_at,
-        external_ticket_id,
-        last_sync_attempt_at,
-        last_sync_error,
-        archived_at,
-        deleted_at
-      FROM ticket_batches
+      ${BASE_BATCH_SELECT}
       WHERE id = ?
       LIMIT 1
     `)
@@ -76,27 +94,7 @@ export async function getLatestBatch(
 ): Promise<BatchRow | null> {
   const row = await db
     .prepare(`
-      SELECT
-        id,
-        batch_key,
-        status,
-        target_draw_id,
-        target_pais_id,
-        target_draw_at,
-        target_draw_snapshot_json,
-        generator_version,
-        weights_version_key,
-        ticket_count,
-        created_at,
-        checked_at,
-        submitted_at,
-        confirmed_at,
-        external_ticket_id,
-        last_sync_attempt_at,
-        last_sync_error,
-        archived_at,
-        deleted_at
-      FROM ticket_batches
+      ${BASE_BATCH_SELECT}
       ORDER BY created_at DESC, id DESC
       LIMIT 1
     `)
@@ -110,27 +108,7 @@ export async function getLatestGeneratedBatch(
 ): Promise<BatchRow | null> {
   const row = await db
     .prepare(`
-      SELECT
-        id,
-        batch_key,
-        status,
-        target_draw_id,
-        target_pais_id,
-        target_draw_at,
-        target_draw_snapshot_json,
-        generator_version,
-        weights_version_key,
-        ticket_count,
-        created_at,
-        checked_at,
-        submitted_at,
-        confirmed_at,
-        external_ticket_id,
-        last_sync_attempt_at,
-        last_sync_error,
-        archived_at,
-        deleted_at
-      FROM ticket_batches
+      ${BASE_BATCH_SELECT}
       WHERE status = 'generated'
       ORDER BY created_at DESC, id DESC
       LIMIT 1
@@ -172,21 +150,38 @@ export async function markBatchSubmitted(
   return await getBatchById(db, batchId);
 }
 
+export interface MarkBatchConfirmedOptions {
+  matchStatus?: string | null;
+  confirmedPaisId?: number | null;
+  confirmedTotalPrice?: number | null;
+}
+
 export async function markBatchConfirmed(
   db: D1Database,
   batchId: number,
   externalTicketId: string,
+  options?: MarkBatchConfirmedOptions,
 ): Promise<BatchRow | null> {
   await db
     .prepare(`
       UPDATE ticket_batches
       SET status = 'confirmed',
           confirmed_at = CURRENT_TIMESTAMP,
+          external_sync_at = CURRENT_TIMESTAMP,
+          external_match_status = ?,
           external_ticket_id = ?,
+          confirmed_pais_id = ?,
+          confirmed_total_price = ?,
           last_sync_error = NULL
       WHERE id = ?
     `)
-    .bind(externalTicketId, batchId)
+    .bind(
+      options?.matchStatus ?? "full",
+      externalTicketId,
+      options?.confirmedPaisId ?? null,
+      options?.confirmedTotalPrice ?? null,
+      batchId,
+    )
     .run();
 
   return await getBatchById(db, batchId);
@@ -199,7 +194,8 @@ export async function touchSyncAttempt(
   await db
     .prepare(`
       UPDATE ticket_batches
-      SET last_sync_attempt_at = CURRENT_TIMESTAMP
+      SET external_sync_at = CURRENT_TIMESTAMP,
+          sync_attempts = COALESCE(sync_attempts, 0) + 1
       WHERE id = ?
     `)
     .bind(batchId)
@@ -214,7 +210,7 @@ export async function saveSyncError(
   await db
     .prepare(`
       UPDATE ticket_batches
-      SET last_sync_attempt_at = CURRENT_TIMESTAMP,
+      SET external_sync_at = CURRENT_TIMESTAMP,
           last_sync_error = ?
       WHERE id = ?
     `)
@@ -236,36 +232,17 @@ export async function archiveBatch(
     .bind(batchId)
     .run();
 }
+
 export async function getBatches(
   db: D1Database,
   options?: { limit?: number; status?: string },
 ): Promise<BatchRow[]> {
   let query = `
-    SELECT
-      id,
-      batch_key,
-      status,
-      target_draw_id,
-      target_pais_id,
-      target_draw_at,
-      target_draw_snapshot_json,
-      generator_version,
-      weights_version_key,
-      ticket_count,
-      created_at,
-      checked_at,
-      submitted_at,
-      confirmed_at,
-      external_ticket_id,
-      last_sync_attempt_at,
-      last_sync_error,
-      archived_at,
-      deleted_at
-    FROM ticket_batches
+    ${BASE_BATCH_SELECT}
   `;
 
   const conditions: string[] = [];
-  const params: any[] = [];
+  const params: Array<string | number> = [];
 
   if (options?.status) {
     conditions.push("status = ?");
@@ -283,11 +260,10 @@ export async function getBatches(
     params.push(options.limit);
   }
 
-  const stmt = db.prepare(query);
-  for (let i = 0; i < params.length; i++) {
-    stmt.bind(params[i]);
-  }
+  const result = await db
+    .prepare(query)
+    .bind(...params)
+    .all<BatchRow>();
 
-  const result = await stmt.all<BatchRow>();
   return result.results ?? [];
 }
