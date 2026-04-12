@@ -303,7 +303,7 @@ if __name__ == "__main__":
     # Load and cluster the draw history
     # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    history_path = os.path.join(script_dir, "draw_history.jsonl")
+    history_path = os.path.join(script_dir, "../data/draw_history.jsonl")
     
     print("Loading draw history...")
     draws = load_draws_for_clustering(history_path)
