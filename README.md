@@ -5,8 +5,9 @@ Cloudflare Worker API for storing generated lottery ticket batches, exposing rea
 ## What it does
 - Stores generated ticket batches and their tickets.
 - Exposes public read endpoints for health, stats, latest draw, latest weights, and batch data.
-- Exposes admin-only endpoints for creating batches and importing checked results.
-- Marks a batch as `checked` after results are imported.
+- Exposes admin-only endpoints for creating batches, importing checked results, and syncing with external Lotto API.
+- Supports batch lifecycle: generated → checked → submitted → confirmed → archived.
+- Syncs batch confirmation with external Lotto API to verify purchased tickets.
 
 ## Runtime
 
@@ -69,7 +70,7 @@ CREATE TABLE weights (
 CREATE TABLE ticket_batches (
   id INTEGER PRIMARY KEY,
   batch_key TEXT,
-  status TEXT, -- 'generated', 'checked', 'archived'
+  status TEXT, -- 'generated', 'checked', 'submitted', 'confirmed', 'archived'
   target_draw_id TEXT,
   target_pais_id INTEGER,
   target_draw_at TEXT,
@@ -79,6 +80,11 @@ CREATE TABLE ticket_batches (
   ticket_count INTEGER,
   created_at TEXT,
   checked_at TEXT,
+  submitted_at TEXT,
+  confirmed_at TEXT,
+  external_ticket_id TEXT,
+  last_sync_attempt_at TEXT,
+  last_sync_error TEXT,
   archived_at TEXT,
   deleted_at TEXT
 );
@@ -405,6 +411,54 @@ Returns imported result rows for a batch.
 
 Archives a batch by setting its status to 'archived' and recording the archive timestamp.
 
+#### `POST /admin/batches/{id}/mark-submitted`
+
+Marks a batch as 'submitted' and records the submission timestamp.
+
+#### `POST /admin/batches/{id}/sync-confirmation`
+
+Syncs batch confirmation with the external Lotto API to verify purchased tickets.
+
+Request body:
+
+```json
+{
+  "token": "otp-token"
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "success": true,
+  "matched": true,
+  "batch": {...},
+  "externalTicketId": "ticket-id"
+}
+```
+
+The endpoint:
+- Fetches active tickets from the Lotto API using the provided OTP token
+- Matches local batch tickets against external tickets by numbers and pais_id
+- Updates the batch with the external ticket ID and marks it as 'confirmed' if matched
+- Records sync attempts and errors for debugging
+
+#### `POST /admin/batches/{id}/submit-and-sync`
+
+Combines marking a batch as submitted and syncing confirmation in a single request.
+
+Request body:
+
+```json
+{
+  "token": "otp-token"
+}
+```
+
+Response includes both the submission status and sync confirmation result.
+
 ## Project structure
 
 ```
@@ -418,7 +472,7 @@ src/
 │   ├── health.ts         # Health check
 │   └── stats.ts          # Statistics endpoints
 ├── services/              # Business logic layer
-│   ├── batchService.ts   # Batch operations
+│   ├── batchService.ts   # Batch operations and sync
 │   ├── resultService.ts  # Result checking/import
 │   └── overviewService.ts # Overview statistics
 ├── repositories/          # Data access layer
@@ -427,8 +481,11 @@ src/
 │   ├── weightsRepo.ts    # Weight queries
 │   ├── ticketsRepo.ts    # Ticket CRUD
 │   └── resultsRepo.ts    # Result CRUD
+├── domain/                # Domain logic
+│   └── validation/       # Ticket validation and prize calculation
 └── utils/                 # Utility functions
     ├── json.ts           # JSON body parsing
+    ├── lottoApi.ts       # External Lotto API client
     └── response.ts       # Response helpers
 ```
 

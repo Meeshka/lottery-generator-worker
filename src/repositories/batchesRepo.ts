@@ -54,6 +54,11 @@ export async function getBatchById(
         ticket_count,
         created_at,
         checked_at,
+        submitted_at,
+        confirmed_at,
+        external_ticket_id,
+        last_sync_attempt_at,
+        last_sync_error,
         archived_at,
         deleted_at
       FROM ticket_batches
@@ -84,6 +89,11 @@ export async function getLatestBatch(
         ticket_count,
         created_at,
         checked_at,
+        submitted_at,
+        confirmed_at,
+        external_ticket_id,
+        last_sync_attempt_at,
+        last_sync_error,
         archived_at,
         deleted_at
       FROM ticket_batches
@@ -113,6 +123,11 @@ export async function getLatestGeneratedBatch(
         ticket_count,
         created_at,
         checked_at,
+        submitted_at,
+        confirmed_at,
+        external_ticket_id,
+        last_sync_attempt_at,
+        last_sync_error,
         archived_at,
         deleted_at
       FROM ticket_batches
@@ -137,6 +152,73 @@ export async function markBatchChecked(
       WHERE id = ?
     `)
     .bind(batchId)
+    .run();
+}
+
+export async function markBatchSubmitted(
+  db: D1Database,
+  batchId: number,
+): Promise<BatchRow | null> {
+  await db
+    .prepare(`
+      UPDATE ticket_batches
+      SET status = 'submitted',
+          submitted_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    .bind(batchId)
+    .run();
+
+  return await getBatchById(db, batchId);
+}
+
+export async function markBatchConfirmed(
+  db: D1Database,
+  batchId: number,
+  externalTicketId: string,
+): Promise<BatchRow | null> {
+  await db
+    .prepare(`
+      UPDATE ticket_batches
+      SET status = 'confirmed',
+          confirmed_at = CURRENT_TIMESTAMP,
+          external_ticket_id = ?,
+          last_sync_error = NULL
+      WHERE id = ?
+    `)
+    .bind(externalTicketId, batchId)
+    .run();
+
+  return await getBatchById(db, batchId);
+}
+
+export async function touchSyncAttempt(
+  db: D1Database,
+  batchId: number,
+): Promise<void> {
+  await db
+    .prepare(`
+      UPDATE ticket_batches
+      SET last_sync_attempt_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    .bind(batchId)
+    .run();
+}
+
+export async function saveSyncError(
+  db: D1Database,
+  batchId: number,
+  error: string,
+): Promise<void> {
+  await db
+    .prepare(`
+      UPDATE ticket_batches
+      SET last_sync_attempt_at = CURRENT_TIMESTAMP,
+          last_sync_error = ?
+      WHERE id = ?
+    `)
+    .bind(error, batchId)
     .run();
 }
 
@@ -172,6 +254,11 @@ export async function getBatches(
       ticket_count,
       created_at,
       checked_at,
+      submitted_at,
+      confirmed_at,
+      external_ticket_id,
+      last_sync_attempt_at,
+      last_sync_error,
       archived_at,
       deleted_at
     FROM ticket_batches

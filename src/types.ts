@@ -3,7 +3,7 @@ export interface Env {
   ADMIN_KEY: string;
 }
 
-export type BatchStatus = "generated" | "checked" | "archived";
+export type BatchStatus = "generated" | "checked" | "submitted" | "confirmed" | "archived";
 
 export interface CreateBatchInput {
   batchKey: string;
@@ -29,6 +29,11 @@ export interface BatchRow {
   ticket_count: number;
   created_at: string;
   checked_at: string | null;
+  submitted_at: string | null;
+  confirmed_at: string | null;
+  external_ticket_id: string | null;
+  last_sync_attempt_at: string | null;
+  last_sync_error: string | null;
   archived_at: string | null;
   deleted_at: string | null;
 }

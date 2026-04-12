@@ -13,6 +13,8 @@ import {
   getLatestGeneratedBatchWithTickets,
   getBatches,
   archiveBatchById,
+  markBatchAsSubmitted,
+  syncBatchConfirmation,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -39,6 +41,10 @@ interface ImportResultsRequestBody {
 
 interface ImportDrawsRequestBody {
   draws: DrawInput[];
+}
+
+interface SyncConfirmationRequestBody {
+  token: string;
 }
 
 function isAdmin(request: Request, env: Env): boolean {
@@ -245,6 +251,75 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         batchId,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname.endsWith("/mark-submitted") && request.method === "POST") {
+    const batchId = parseBatchIdFromPath(pathname, "/mark-submitted");
+    if (!batchId) {
+      return notFoundResponse();
+    }
+
+    try {
+      const batch = await markBatchAsSubmitted(env.DB, batchId);
+      return jsonResponse({
+        ok: true,
+        batchId,
+        status: batch?.status,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname.endsWith("/sync-confirmation") && request.method === "POST") {
+    const batchId = parseBatchIdFromPath(pathname, "/sync-confirmation");
+    if (!batchId) {
+      return notFoundResponse();
+    }
+
+    try {
+      const body = await readJsonBody<SyncConfirmationRequestBody>(request);
+
+      const result = await syncBatchConfirmation(env.DB, batchId, body.token);
+      return jsonResponse({
+        ok: true,
+        ...result,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname.endsWith("/submit-and-sync") && request.method === "POST") {
+    const batchId = parseBatchIdFromPath(pathname, "/submit-and-sync");
+    if (!batchId) {
+      return notFoundResponse();
+    }
+
+    try {
+      const body = await readJsonBody<SyncConfirmationRequestBody>(request);
+
+      // First mark as submitted
+      const batch = await markBatchAsSubmitted(env.DB, batchId);
+
+      // Then sync confirmation
+      const syncResult = await syncBatchConfirmation(env.DB, batchId, body.token);
+
+      return jsonResponse({
+        ok: true,
+        batchId,
+        submittedStatus: batch?.status,
+        ...syncResult,
       });
     } catch (error) {
       return badRequestResponse(
