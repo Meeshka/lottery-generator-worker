@@ -159,6 +159,31 @@ cd py-engine
 npx wrangler deploy
 ```
 
+### Mobile app
+
+The project includes an Expo React Native mobile app that connects to the Worker API.
+
+Setup:
+
+```bash
+cd mobile
+npm install
+```
+
+Configure the API base URL in `.env`:
+
+```bash
+EXPO_PUBLIC_API_BASE=https://lottery-generator-worker.ushakov-ma.workers.dev
+```
+
+Run the app:
+
+```bash
+npx expo start
+```
+
+The mobile app provides a frontend interface to interact with the Worker API, including health checks and accessing draw data.
+
 ## Python bridge CLI
 
 `bridge.py` supports the following workflow commands:
@@ -563,6 +588,23 @@ py-engine/                # Python Worker engine
     ├── validate.py
     ├── validate_updated.py
     └── weights.py
+
+mobile/                   # Expo React Native mobile app
+├── app/                  # App screens and navigation
+│   ├── (tabs)/          # Tab-based navigation
+│   │   ├── index.tsx    # Home screen
+│   │   └── explore.tsx  # Explore screen
+│   ├── _layout.tsx      # Root layout
+│   └── modal.tsx        # Modal screen
+├── components/           # Reusable components
+│   └── ui/              # UI components
+├── services/            # API services
+│   └── api.ts           # Worker API client
+├── constants/           # App constants
+├── hooks/               # Custom React hooks
+├── assets/              # Static assets
+├── .env                 # Environment variables
+└── package.json         # Node dependencies
 ```
 
 ## Notes
