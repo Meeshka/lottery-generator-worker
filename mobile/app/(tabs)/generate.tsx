@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -12,12 +13,24 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { generateTickets } from "../../services/api";
+import { generateTickets, createBatch, getLatestDraw } from "../../services/api";
 
 type Ticket = {
   ticketIndex: number;
   numbers: number[];
   strong: number;
+};
+
+type GeneratedBatch = {
+  id: string;
+  tickets: Ticket[];
+  createdAt: string;
+  params: {
+    count: number;
+    maxCommon: number;
+    seed?: string;
+    clusterTarget?: number;
+  };
 };
 
 export default function GenerateTicketsScreen() {
@@ -27,7 +40,8 @@ export default function GenerateTicketsScreen() {
   const [clusterTarget, setClusterTarget] = useState("2");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [batch, setBatch] = useState<GeneratedBatch | null>(null);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   async function handleGenerate() {
     const ticketCount = parseInt(count, 10);
@@ -51,7 +65,7 @@ export default function GenerateTicketsScreen() {
 
     setLoading(true);
     setError("");
-    setTickets([]);
+    setBatch(null);
 
     try {
       const response = await generateTickets({
@@ -61,8 +75,77 @@ export default function GenerateTicketsScreen() {
         clusterTarget: clusterValue,
       });
 
-      setTickets(response.tickets || []);
-      Alert.alert("Success", `Generated ${response.count} tickets`);
+      const tickets = response.tickets || [];
+
+      try {
+        const batchKey = `mobile-${Date.now()}`;
+        
+        let targetDrawId: string | null = null;
+        let targetPaisId: number | null = null;
+        let targetDrawAt: string | null = null;
+        let targetDrawSnapshotJson: string | null = null;
+
+        try {
+          const latestDraw = await getLatestDraw();
+          const drawData = latestDraw.draw;
+          
+          if (drawData && drawData.draw_id) {
+            targetDrawId = String(drawData.draw_id);
+            targetPaisId = drawData.pais_id ?? null;
+            targetDrawAt = drawData.draw_date ?? null;
+            targetDrawSnapshotJson = JSON.stringify(drawData);
+          }
+        } catch (drawErr) {
+          console.warn("Could not fetch latest draw, creating batch without draw info:", drawErr);
+        }
+
+        const batchResponse = await createBatch({
+          batchKey,
+          targetDrawId,
+          targetPaisId,
+          targetDrawAt,
+          targetDrawSnapshotJson,
+          generatorVersion: "mobile-v1",
+          tickets: tickets.map((t: Ticket) => ({
+            ticketIndex: t.ticketIndex,
+            numbers: t.numbers,
+            strong: t.strong,
+          })),
+        });
+
+        const newBatch: GeneratedBatch = {
+          id: String(batchResponse.batch?.id || batchKey),
+          tickets: tickets,
+          createdAt: new Date().toISOString(),
+          params: {
+            count: ticketCount,
+            maxCommon: maxCommonValue,
+            seed: seed || undefined,
+            clusterTarget: clusterValue,
+          },
+        };
+
+        setBatch(newBatch);
+        Alert.alert("Success", `Generated and saved ${response.count} tickets as batch #${newBatch.id}`);
+      } catch (batchErr) {
+        const message = batchErr instanceof Error ? batchErr.message : String(batchErr);
+        console.error("Failed to save batch:", message);
+        
+        const newBatch: GeneratedBatch = {
+          id: `local-${Date.now()}`,
+          tickets: tickets,
+          createdAt: new Date().toISOString(),
+          params: {
+            count: ticketCount,
+            maxCommon: maxCommonValue,
+            seed: seed || undefined,
+            clusterTarget: clusterValue,
+          },
+        };
+
+        setBatch(newBatch);
+        Alert.alert("Partial Success", `Generated ${response.count} tickets (failed to save to database: ${message})`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -142,26 +225,58 @@ export default function GenerateTicketsScreen() {
             )}
           </Pressable>
 
-          {tickets.length > 0 && (
-            <View style={styles.ticketsContainer}>
-              <Text style={styles.ticketsTitle}>
-                Generated {tickets.length} Tickets
+          {batch && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.batchCard,
+                pressed && styles.batchCardPressed,
+              ]}
+              onPress={() => setShowBatchModal(true)}
+            >
+              <Text style={styles.batchTitle}>Batch #{batch.id.slice(-8)}</Text>
+              <Text style={styles.batchMeta}>
+                {batch.tickets.length} tickets · {new Date(batch.createdAt).toLocaleString()}
               </Text>
-              {tickets.map((ticket) => (
-                <View key={ticket.ticketIndex} style={styles.ticketCard}>
-                  <Text style={styles.ticketIndex}>
-                    Ticket #{ticket.ticketIndex}
-                  </Text>
-                  <Text style={styles.ticketNumbers}>
-                    Numbers: {ticket.numbers.join(", ")}
-                  </Text>
-                  <Text style={styles.ticketStrong}>
-                    Strong: {ticket.strong}
-                  </Text>
-                </View>
-              ))}
-            </View>
+              <Text style={styles.batchParams}>
+                Count: {batch.params.count} · Max Common: {batch.params.maxCommon}
+                {batch.params.seed && ` · Seed: ${batch.params.seed}`}
+                {batch.params.clusterTarget && ` · Cluster: ${batch.params.clusterTarget}`}
+              </Text>
+              <View style={styles.batchArrow}>
+                <Text style={styles.batchArrowText}>→ View Tickets</Text>
+              </View>
+            </Pressable>
           )}
+
+          <Modal
+            visible={showBatchModal}
+            animationType="slide"
+            onRequestClose={() => setShowBatchModal(false)}
+          >
+            <SafeAreaView style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Batch #{batch?.id.slice(-8)}</Text>
+                <Pressable onPress={() => setShowBatchModal(false)}>
+                  <Text style={styles.modalClose}>Close</Text>
+                </Pressable>
+              </View>
+              <ScrollView contentContainerStyle={styles.modalContent}>
+                {batch?.tickets.map((ticket) => (
+                  <View key={ticket.ticketIndex} style={styles.ticketCard}>
+                    <Text style={styles.ticketIndex}>
+                      Ticket #{ticket.ticketIndex}
+                    </Text>
+                    <Text style={styles.ticketNumbers}>
+                      Numbers: {ticket.numbers.join(", ")}
+                    </Text>
+                    <Text style={styles.ticketStrong}>
+                      Strong: {ticket.strong}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </SafeAreaView>
+          </Modal>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -224,13 +339,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  ticketsContainer: {
-    marginTop: 16,
+  batchCard: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "#f3f4f6",
+    borderWidth: 2,
+    borderColor: "#007AFF",
   },
-  ticketsTitle: {
-    fontSize: 18,
+  batchCardPressed: {
+    opacity: 0.8,
+  },
+  batchTitle: {
+    fontSize: 20,
     fontWeight: "700",
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  batchMeta: {
+    fontSize: 14,
+    marginBottom: 6,
+    opacity: 0.8,
+  },
+  batchParams: {
+    fontSize: 13,
+    marginBottom: 8,
+    opacity: 0.7,
+  },
+  batchArrow: {
+    marginTop: 8,
+  },
+  batchArrowText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#007AFF",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalClose: {
+    fontSize: 16,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+  modalContent: {
+    padding: 16,
   },
   ticketCard: {
     padding: 16,

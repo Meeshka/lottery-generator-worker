@@ -170,10 +170,11 @@ cd mobile
 npm install
 ```
 
-Configure the API base URL in `.env`:
+Configure the API base URL and admin key in `.env`:
 
 ```bash
 EXPO_PUBLIC_API_BASE=https://lottery-generator-worker.ushakov-ma.workers.dev
+EXPO_PUBLIC_ADMIN_KEY=your-admin-key-here
 ```
 
 Run the app:
@@ -182,12 +183,13 @@ Run the app:
 npx expo start
 ```
 
-The mobile app currently uses the Worker as its API gateway. OTP generation and OTP validation are proxied through the Worker, so the app no longer calls LottoSheli directly from the client.
+The mobile app uses the Worker as its API gateway. OTP generation and OTP validation are proxied through the Worker, so the app no longer calls LottoSheli directly from the client.
 
 Current mobile functionality includes:
 
 - health checks against the Worker
 - Lotto OTP login through Worker proxy routes
+- **Generate tickets** - Direct ticket generation via the Python Worker engine with configurable parameters (count, max common, seed, cluster target). Generated batches are automatically saved to the database.
 - batch listing
 - batch detail, summary, and result views
 
@@ -264,6 +266,51 @@ All responses are JSON. Common error responses:
 - `404` for unknown routes or missing batch resources
 
 ### Public endpoints
+
+#### `POST /tickets/generate`
+
+Proxies ticket generation requests to the Python Worker engine.
+
+Request body:
+
+```json
+{
+  "count": 10,
+  "maxCommon": 3,
+  "seed": "optional-seed",
+  "clusterTarget": 1
+}
+```
+
+Response (success):
+
+```json
+{
+  "ok": true,
+  "tickets": [
+    {
+      "ticketIndex": 1,
+      "numbers": [1, 5, 9, 12, 26, 37],
+      "strong": 4
+    }
+  ],
+  "count": 1
+}
+```
+
+Response (error):
+
+```json
+{
+  "ok": false,
+  "error": "error message"
+}
+```
+
+- `count`: Number of tickets to generate (default: 10, must be >= 1)
+- `maxCommon`: Maximum allowed common numbers with history/current batch (default: 3)
+- `seed`: Optional random seed for reproducibility
+- `clusterTarget`: Optional target cluster ID (1-4) for distribution-based generation
 
 #### `POST /`
 
@@ -648,7 +695,11 @@ mobile/                   # Expo React Native mobile app
 ├── app/                  # App screens and navigation
 │   ├── (tabs)/          # Tab-based navigation
 │   │   ├── index.tsx    # Home screen
+│   │   ├── generate.tsx # Generate tickets screen
+│   │   ├── batches.tsx  # Batches list screen
 │   │   └── explore.tsx  # Explore screen
+│   ├── batch/           # Batch detail screens
+│   │   └── [id].tsx     # Batch detail by ID
 │   ├── _layout.tsx      # Root layout
 │   └── modal.tsx        # Modal screen
 ├── components/           # Reusable components
@@ -674,3 +725,5 @@ mobile/                   # Expo React Native mobile app
 - The scheduled Worker handler is still a placeholder and does not run any jobs yet.
 - Batch archiving is now exposed via the `/admin/batches/{id}/archive` endpoint.
 - Result imports always attach to the latest draw in the database.
+- Batches can be created without draw information (targetDrawId, targetPaisId, targetDrawAt, targetDrawSnapshotJson can be null). This is useful when generating tickets before a draw is closed.
+- The main Worker proxies ticket generation requests to the Python Worker via the `/tickets/generate` endpoint. The Python Worker URL is configured via the `PYTHON_WORKER_URL` environment variable in `wrangler.jsonc`.
