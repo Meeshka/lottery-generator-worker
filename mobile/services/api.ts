@@ -6,6 +6,8 @@ const PYTHON_ENGINE_BASE =
   process.env.EXPO_PUBLIC_PYTHON_ENGINE_BASE ??
   "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
 
+const ADMIN_KEY = process.env.EXPO_PUBLIC_ADMIN_KEY;
+
 function buildUrl(path: string) {
   return `${API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
@@ -169,4 +171,49 @@ export async function generateTickets(options: {
   }
 
   return data;
+}
+
+export async function createBatch(options: {
+  batchKey: string;
+  targetDrawId?: string | null;
+  targetPaisId: number | null;
+  targetDrawAt?: string | null;
+  targetDrawSnapshotJson?: string | null;
+  generatorVersion?: string;
+  weightsVersionKey?: string;
+  tickets: Array<{
+    ticketIndex: number;
+    numbers: number[];
+    strong: number;
+  }>;
+}) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl("/admin/batches/create"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+    body: JSON.stringify({
+      batchKey: options.batchKey,
+      targetDrawId: options.targetDrawId,
+      targetPaisId: options.targetPaisId,
+      targetDrawAt: options.targetDrawAt,
+      targetDrawSnapshotJson: options.targetDrawSnapshotJson,
+      generatorVersion: options.generatorVersion || "mobile-v1",
+      weightsVersionKey: options.weightsVersionKey || null,
+      tickets: options.tickets,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to create batch - ${text}`);
+  }
+
+  return res.json();
 }
