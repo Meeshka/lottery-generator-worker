@@ -1,14 +1,14 @@
 # Lottery Generator Mobile App
 
-Expo React Native mobile app for the lottery generator worker system. Provides a frontend interface to interact with the Cloudflare Worker API.
+Expo React Native mobile app for the lottery generator worker system. It uses the Cloudflare Worker as its API gateway.
 
 ## Features
 
-- View health status and system statistics
-- Browse lottery draw history
+- View Worker health status
+- Login with Lotto OTP through Worker proxy routes
 - View generated ticket batches
-- Check batch results and prizes
-- Secure token storage for admin operations
+- View batch summaries and result details
+- Store Lotto access tokens securely on device
 
 ## Setup
 
@@ -18,7 +18,7 @@ Expo React Native mobile app for the lottery generator worker system. Provides a
    npm install
    ```
 
-2. Configure environment variables in `.env`:
+2. Configure environment variables in `.env`
 
    ```bash
    EXPO_PUBLIC_API_BASE=https://lottery-generator-worker.ushakov-ma.workers.dev
@@ -30,7 +30,7 @@ Expo React Native mobile app for the lottery generator worker system. Provides a
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+You can then open the app in:
 
 - [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
@@ -39,37 +39,42 @@ In the output, you'll find options to open the app in a
 
 ## Project structure
 
-```
+```text
 app/
-├── (tabs)/          # Tab-based navigation
-│   ├── index.tsx    # Home/overview screen
-│   ├── explore.tsx  # Explore/batches screen
-│   └── _layout.tsx  # Tab layout configuration
-├── batch/
-│   └── [id].tsx     # Batch detail screen
-├── _layout.tsx      # Root layout
-└── modal.tsx        # Modal screen
+|-- (tabs)/
+|   |-- login.tsx      # Lotto OTP login screen
+|   |-- batches.tsx    # Batch list screen
+|   |-- explore.tsx    # Placeholder screen
+|   `-- _layout.tsx    # Tab layout configuration
+|-- batch/
+|   `-- [id].tsx       # Batch detail screen
+|-- _layout.tsx        # Root layout
+`-- modal.tsx          # Modal screen
 components/
-├── ui/              # Reusable UI components
-└── external-link.tsx
+|-- ui/                # Reusable UI components
+`-- external-link.tsx
 services/
-├── api.ts           # Worker API client
-└── secureStorage.ts # Encrypted storage for tokens
+|-- api.ts             # Worker API client
+`-- secureStorage.ts   # Token and credential storage
 ```
 
 ## API Integration
 
-The app connects to the Cloudflare Worker API endpoints defined in `services/api.ts`:
+The app currently calls these Worker endpoints from `services/api.ts`:
 
-- `GET /health` - System health check
-- `GET /stats/overview` - System statistics
-- `GET /draws/latest` - Latest draw information
-- `GET /batches/latest` - Latest batch with tickets
-- `GET /batches/{id}` - Specific batch details
-- `GET /batches/{id}/tickets` - Batch tickets
-- `GET /batches/{id}/results` - Batch results
-- `GET /batches/{id}/summary` - Batch summary statistics
+- `GET /health`
+- `GET /draws/latest`
+- `GET /batches`
+- `GET /batches/{id}`
+- `GET /batches/{id}/tickets`
+- `GET /batches/{id}/results`
+- `GET /batches/{id}/summary`
+- `POST /lotto/otp/generate`
+- `POST /lotto/otp/validate`
+
+The app no longer calls LottoSheli directly from the client for OTP actions.
 
 ## Security
 
-Admin tokens are stored securely using Expo SecureStore. The app uses encrypted storage for sensitive credentials required for admin operations.
+- Lotto access and refresh tokens are stored with Expo SecureStore.
+- Saved ID number and phone number are stored locally with AsyncStorage for convenience.

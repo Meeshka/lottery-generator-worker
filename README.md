@@ -182,7 +182,14 @@ Run the app:
 npx expo start
 ```
 
-The mobile app provides a frontend interface to interact with the Worker API, including health checks and accessing draw data.
+The mobile app currently uses the Worker as its API gateway. OTP generation and OTP validation are proxied through the Worker, so the app no longer calls LottoSheli directly from the client.
+
+Current mobile functionality includes:
+
+- health checks against the Worker
+- Lotto OTP login through Worker proxy routes
+- batch listing
+- batch detail, summary, and result views
 
 ## Python bridge CLI
 
@@ -357,6 +364,51 @@ Returns an aggregate summary for the latest batch:
 #### `GET /batches/{id}/summary`
 
 Returns the same aggregate summary for a specific batch.
+
+#### `POST /lotto/otp/generate`
+
+Public Worker proxy for requesting an OTP code from LottoSheli.
+
+Request body:
+
+```json
+{
+  "idNumber": "123456789",
+  "phoneNumber": "0501234567"
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true
+}
+```
+
+#### `POST /lotto/otp/validate`
+
+Public Worker proxy for validating an OTP code and returning Lotto access tokens.
+
+Request body:
+
+```json
+{
+  "idNumber": "123456789",
+  "phoneNumber": "0501234567",
+  "otpCode": "123456"
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "accessToken": "token",
+  "refreshToken": "token"
+}
+```
 
 ### Admin endpoints
 

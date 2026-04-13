@@ -2,14 +2,8 @@ const API_BASE =
   process.env.EXPO_PUBLIC_API_BASE ??
   "https://lottery-generator-worker.ushakov-ma.workers.dev";
 
-const LOTTO_API_BASE = "https://api.lottosheli.com/api/v1";
-
 function buildUrl(path: string) {
   return `${API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-}
-
-function buildLottoUrl(path: string) {
-  return `${LOTTO_API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
 export async function healthCheck() {
@@ -76,14 +70,11 @@ export async function getBatchResults(id: number) {
 }
 
 export async function generateOtp(idNumber: string, phoneNumber: string) {
-  const res = await fetch(buildLottoUrl("/client/otp/generate"), {
+  const res = await fetch(buildUrl("/lotto/otp/generate"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "User-Agent": "lotto-script/1.0",
-      "Origin": "https://lottosheli.com",
-      "Referer": "https://lottosheli.com/",
     },
     body: JSON.stringify({ idNumber, phoneNumber }),
   });
@@ -106,14 +97,11 @@ export async function generateOtp(idNumber: string, phoneNumber: string) {
 }
 
 export async function validateOtp(idNumber: string, phoneNumber: string, otpCode: string) {
-  const res = await fetch(buildLottoUrl("/client/otp/validate"), {
+  const res = await fetch(buildUrl("/lotto/otp/validate"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "User-Agent": "lotto-script/1.0",
-      "Origin": "https://lottosheli.com",
-      "Referer": "https://lottosheli.com/",
     },
     body: JSON.stringify({ idNumber, phoneNumber, otpCode }),
   });
