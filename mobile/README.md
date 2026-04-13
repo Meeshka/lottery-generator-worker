@@ -1,8 +1,16 @@
-# Welcome to your Expo app 👋
+# Lottery Generator Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo React Native mobile app for the lottery generator worker system. Provides a frontend interface to interact with the Cloudflare Worker API.
 
-## Get started
+## Features
+
+- View health status and system statistics
+- Browse lottery draw history
+- View generated ticket batches
+- Check batch results and prizes
+- Secure token storage for admin operations
+
+## Setup
 
 1. Install dependencies
 
@@ -10,7 +18,13 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Configure environment variables in `.env`:
+
+   ```bash
+   EXPO_PUBLIC_API_BASE=https://lottery-generator-worker.ushakov-ma.workers.dev
+   ```
+
+3. Start the development server
 
    ```bash
    npx expo start
@@ -18,33 +32,44 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 In the output, you'll find options to open the app in a
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
 - [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- [Expo Go](https://expo.dev/go)
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Project structure
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+app/
+├── (tabs)/          # Tab-based navigation
+│   ├── index.tsx    # Home/overview screen
+│   ├── explore.tsx  # Explore/batches screen
+│   └── _layout.tsx  # Tab layout configuration
+├── batch/
+│   └── [id].tsx     # Batch detail screen
+├── _layout.tsx      # Root layout
+└── modal.tsx        # Modal screen
+components/
+├── ui/              # Reusable UI components
+└── external-link.tsx
+services/
+├── api.ts           # Worker API client
+└── secureStorage.ts # Encrypted storage for tokens
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## API Integration
 
-## Learn more
+The app connects to the Cloudflare Worker API endpoints defined in `services/api.ts`:
 
-To learn more about developing your project with Expo, look at the following resources:
+- `GET /health` - System health check
+- `GET /stats/overview` - System statistics
+- `GET /draws/latest` - Latest draw information
+- `GET /batches/latest` - Latest batch with tickets
+- `GET /batches/{id}` - Specific batch details
+- `GET /batches/{id}/tickets` - Batch tickets
+- `GET /batches/{id}/results` - Batch results
+- `GET /batches/{id}/summary` - Batch summary statistics
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Security
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Admin tokens are stored securely using Expo SecureStore. The app uses encrypted storage for sensitive credentials required for admin operations.
