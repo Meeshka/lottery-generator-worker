@@ -1,5 +1,6 @@
 import type { Env } from "./types";
 import { handleAdminRoute } from "./routes/admin";
+import { handleAuthRoute } from "./routes/auth";
 import { handleBatchesRoute } from "./routes/batches";
 import { handleStatsRoute } from "./routes/stats";
 import { jsonResponse, notFoundResponse } from "./utils/response";
@@ -19,6 +20,11 @@ export default {
     const statsResponse = await handleStatsRoute(request, env);
     if (statsResponse) {
       return statsResponse;
+    }
+
+    const authResponse = await handleAuthRoute(request, env);
+    if (authResponse) {
+      return authResponse;
     }
 
     if (url.pathname === "/draws/latest") {
