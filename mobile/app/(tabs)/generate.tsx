@@ -111,7 +111,7 @@ export default function GenerateTicketsScreen() {
         });
 
         const newBatch: GeneratedBatch = {
-          id: String(batchResponse.batch?.id || batchKey),
+          id: String(batchResponse.batch?.id || batchResponse.batch?.batch_key),
           tickets: tickets,
           createdAt: new Date().toISOString(),
           params: {

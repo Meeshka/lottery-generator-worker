@@ -26,7 +26,6 @@ import {
 } from "../utils/lottoApi";
 
 export interface CreateBatchWithTicketsInput {
-  batchKey?: string | null;
   targetDrawId?: string | null;
   targetPaisId?: number | null;
   targetDrawAt?: string | null;
@@ -118,9 +117,6 @@ export async function createBatchWithTickets(
   db: D1Database,
   input: CreateBatchWithTicketsInput,
 ): Promise<BatchWithTickets> {
-  if (!input.batchKey || !input.batchKey.trim()) {
-    // batchKey is optional, will be auto-generated if missing
-  }
 
   if (!Array.isArray(input.tickets) || input.tickets.length === 0) {
     throw new Error("tickets array must not be empty");
@@ -131,7 +127,7 @@ export async function createBatchWithTickets(
   }
 
   const createInput: CreateBatchInput = {
-    batchKey: input.batchKey?.trim() || crypto.randomUUID(),
+    batchKey: crypto.randomUUID(),
     targetDrawId: input.targetDrawId ?? null,
     targetPaisId: input.targetPaisId ?? null,
     targetDrawAt: input.targetDrawAt ?? null,

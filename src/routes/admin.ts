@@ -24,7 +24,6 @@ import { upsertDraw } from "../repositories/drawsRepo";
 import { generateOtp, validateOtp, LottoAuthError } from "../utils/lottoAuth";
 
 interface CreateBatchRequestBody {
-  batchKey?: string | null;
   targetDrawId?: string | null;
   targetPaisId?: number | null;
   targetDrawAt?: string | null;
@@ -105,7 +104,6 @@ export async function handleAdminRoute(
       const body = await readJsonBody<CreateBatchRequestBody>(request);
 
       const created = await createBatchWithTickets(env.DB, {
-        batchKey: body.batchKey,
         targetDrawId: body.targetDrawId ?? null,
         targetPaisId: body.targetPaisId ?? null,
         targetDrawAt: body.targetDrawAt ?? null,

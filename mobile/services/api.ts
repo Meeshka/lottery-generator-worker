@@ -184,7 +184,6 @@ export async function generateTickets(options: {
 }
 
 export async function createBatch(options: {
-  batchKey: string;
   targetDrawId?: string | null;
   targetPaisId: number | null;
   targetDrawAt?: string | null;
@@ -209,7 +208,6 @@ export async function createBatch(options: {
       "x-admin-key": ADMIN_KEY,
     },
     body: JSON.stringify({
-      batchKey: options.batchKey,
       targetDrawId: options.targetDrawId,
       targetPaisId: options.targetPaisId,
       targetDrawAt: options.targetDrawAt,

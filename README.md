@@ -533,7 +533,6 @@ Request body:
 
 ```json
 {
-  "batchKey": "batch-2026-04-09",
   "targetDrawId": "1234",
   "targetPaisId": 1234,
   "targetDrawAt": "2026-04-10T20:00:00Z",
@@ -552,9 +551,11 @@ Request body:
 
 Note: `targetPaisId` is a number, not a string.
 
+The `batchKey` is automatically generated as a UUID on the server and returned in the response.
+
 Validation rules:
 
-- `batchKey` is optional; if not provided, a UUID will be auto-generated
+- `batchKey` is not accepted from the client; always generated as UUID on server
 - `tickets` must not be empty
 - each `ticketIndex` must be a positive integer
 - each ticket must contain exactly 6 unique numbers in range `1..37`
