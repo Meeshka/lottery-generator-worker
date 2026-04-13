@@ -2,6 +2,9 @@
   "name": "lottery-generator-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-08",
+  "vars": {
+    "PYTHON_WORKER_URL": "https://lottery-generator-python-engine.ushakov-ma.workers.dev"
+  },
   "d1_databases": [
     {
       "binding": "DB",
