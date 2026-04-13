@@ -137,7 +137,7 @@ For the Python Worker engine, install dependencies:
 
 ```bash
 cd py-engine
-pip install workers-py workers-runtime-sdk
+uv sync
 ```
 
 Run locally:
@@ -618,10 +618,12 @@ src/
 │   ├── ticketsRepo.ts    # Ticket CRUD
 │   └── resultsRepo.ts    # Result CRUD
 ├── domain/                # Domain logic
-│   └── validation/       # Ticket validation and prize calculation
+│   ├── generator/       # Generator domain logic
+│   └── validation/      # Ticket validation and prize calculation
 └── utils/                 # Utility functions
     ├── json.ts           # JSON body parsing
     ├── lottoApi.ts       # External Lotto API client
+    ├── lottoAuth.ts      # Lotto authentication utilities
     └── response.ts       # Response helpers
 
 py-engine/                # Python Worker engine
@@ -634,6 +636,7 @@ py-engine/                # Python Worker engine
     ├── entry.py          # Python Worker entry point
     ├── draw_clustering.py
     ├── draw_history.py
+    ├── generator_engine.py
     ├── lottery_generator.py
     ├── lotto_api.py
     ├── lotto_update.py
@@ -651,9 +654,16 @@ mobile/                   # Expo React Native mobile app
 ├── components/           # Reusable components
 │   └── ui/              # UI components
 ├── services/            # API services
-│   └── api.ts           # Worker API client
+│   ├── api.ts           # Worker API client
+│   └── secureStorage.ts # Secure storage utilities
 ├── constants/           # App constants
+│   └── theme.ts         # Theme configuration
 ├── hooks/               # Custom React hooks
+│   ├── use-color-scheme.ts
+│   ├── use-color-scheme.web.ts
+│   └── use-theme-color.ts
+├── scripts/             # Build and utility scripts
+│   └── reset-project.js
 ├── assets/              # Static assets
 ├── .env                 # Environment variables
 └── package.json         # Node dependencies

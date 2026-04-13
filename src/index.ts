@@ -54,6 +54,34 @@ export default {
       return jsonResponse(row ?? null);
     }
 
+    if (url.pathname === "/tickets/generate" && request.method === "POST") {
+      const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
+      
+      try {
+        const body = await request.text();
+        const response = await fetch(`${pythonWorkerUrl}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body,
+        });
+
+        const responseText = await response.text();
+        return new Response(responseText, {
+          status: response.status,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (error) {
+        return jsonResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        }, 500);
+      }
+    }
+
     const adminResponse = await handleAdminRoute(request, env);
     if (adminResponse) {
       return adminResponse;

@@ -2,8 +2,16 @@ const API_BASE =
   process.env.EXPO_PUBLIC_API_BASE ??
   "https://lottery-generator-worker.ushakov-ma.workers.dev";
 
+const PYTHON_ENGINE_BASE =
+  process.env.EXPO_PUBLIC_PYTHON_ENGINE_BASE ??
+  "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
+
 function buildUrl(path: string) {
   return `${API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function buildPythonUrl(path: string) {
+  return `${PYTHON_ENGINE_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
 export async function healthCheck() {
@@ -121,4 +129,38 @@ export async function validateOtp(idNumber: string, phoneNumber: string, otpCode
     accessToken: data.accessToken,
     refreshToken: data.refreshToken || "",
   };
+}
+
+export async function generateTickets(options: {
+  count?: number;
+  maxCommon?: number;
+  seed?: string;
+  clusterTarget?: number;
+}) {
+  const res = await fetch(buildUrl("/tickets/generate"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      count: options.count ?? 10,
+      maxCommon: options.maxCommon ?? 3,
+      seed: options.seed ?? null,
+      clusterTarget: options.clusterTarget ?? null,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to generate tickets - ${text}`);
+  }
+
+  const data = await res.json();
+  
+  if (!data.ok) {
+    throw new Error(data.error || "Failed to generate tickets");
+  }
+
+  return data;
 }
