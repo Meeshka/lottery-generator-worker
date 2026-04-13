@@ -137,7 +137,7 @@ export async function generateTickets(options: {
   seed?: string;
   clusterTarget?: number;
 }) {
-  const res = await fetch(buildUrl("/tickets/generate"), {
+  const res = await fetch(buildPythonUrl("/"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
@@ -151,15 +151,21 @@ export async function generateTickets(options: {
     }),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: Failed to generate tickets - ${text}`);
+  const text = await res.text();
+
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
   }
 
-  const data = await res.json();
-  
-  if (!data.ok) {
-    throw new Error(data.error || "Failed to generate tickets");
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: Failed to generate tickets - ${JSON.stringify(data)}`);
+  }
+
+  if (!data?.ok) {
+    throw new Error(data?.error || "Failed to generate tickets");
   }
 
   return data;
