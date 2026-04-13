@@ -4,7 +4,7 @@ Cloudflare Worker API for storing generated lottery ticket batches, exposing rea
 
 ## What it does
 - Stores generated ticket batches and their tickets.
-- Exposes public read endpoints for health, stats, latest draw, latest weights, and batch data.
+- Exposes public read endpoints for health, stats, latest draw, open draw, latest weights, and batch data.
 - Exposes admin-only endpoints for creating batches, importing checked results, and syncing with external Lotto API.
 - Supports batch lifecycle: generated → checked → submitted → confirmed → archived.
 - Syncs batch confirmation with external Lotto API to verify purchased tickets.
@@ -189,7 +189,7 @@ Current mobile functionality includes:
 
 - health checks against the Worker
 - Lotto OTP login through Worker proxy routes
-- **Generate tickets** - Direct ticket generation via the Python Worker engine with configurable parameters (count, max common, seed, cluster target). Generated batches are automatically saved to the database.
+- **Generate tickets** - Direct ticket generation via the Python Worker engine with configurable parameters (count, max common, seed, cluster target). Generated batches are automatically saved to the database with open draw information from `/draws/open`.
 - batch listing
 - batch detail, summary, and result views
 
@@ -245,9 +245,10 @@ python bridge.py full-cycle --batch-key batch-2026-04-10
 
 - `generate` generates tickets and immediately saves the batch in the Worker.
 - `generate` automatically fetches the next open draw from pais.co.il and includes:
-  - `LotteryNumber` as both `targetDrawId` and `targetPaisId`
+  - `LotteryNumber` as `targetPaisId`
   - `nextLottoryDate` as `targetDrawAt`
   - the entire draw object as `targetDrawSnapshotJson`
+  - `targetDrawId` is left null until confirmation from Lotto Sheli or result appearance
 - `--cluster-target` targets a specific cluster centroid from weights.json for ticket distribution.
 - if `--batch-key` is omitted, `generate` and `full-cycle` create a UUID batch key automatically.
 - `sync` updates local `draw_history.jsonl` and `weights.json`, then imports draws into the Worker DB via `/admin/import/draws`.
@@ -376,6 +377,32 @@ Returns:
 #### `GET /draws/latest`
 
 Returns the latest row from `draws`, ordered by `draw_date DESC, draw_id DESC`.
+
+#### `GET /draws/open`
+
+Returns the next open lottery draw information from pais.co.il.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "draw": {
+    "LotteryNumber": 3916,
+    "nextLottoryDate": "2026-04-14T20:00:00",
+    "displayDate": "...",
+    "displayTime": "...",
+    "firstPrize": 12345678,
+    "secondPrize": 123456
+  }
+}
+```
+
+This endpoint is used for generating batches targeting the next upcoming draw:
+- `LotteryNumber` maps to `targetPaisId`
+- `nextLottoryDate` maps to `targetDrawAt`
+- the entire `draw` object maps to `targetDrawSnapshotJson`
+- `targetDrawId` should remain null until confirmation from Lotto Sheli or result appearance
 
 #### `GET /weights/current`
 

@@ -45,6 +45,16 @@ export async function getLatestDraw() {
   return res.json();
 }
 
+export async function getOpenDraw() {
+  const res = await fetch(buildUrl("/draws/open"));
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
 export async function getBatches(limit = 20) {
   const res = await fetch(buildUrl(`/batches?limit=${limit}`));
 

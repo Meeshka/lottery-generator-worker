@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { generateTickets, createBatch, getLatestDraw } from "../../services/api";
+import { generateTickets, createBatch, getOpenDraw } from "../../services/api";
 
 type Ticket = {
   ticketIndex: number;
@@ -86,17 +86,17 @@ export default function GenerateTicketsScreen() {
         let targetDrawSnapshotJson: string | null = null;
 
         try {
-          const latestDraw = await getLatestDraw();
-          const drawData = latestDraw.draw;
+          const openDraw = await getOpenDraw();
+          const drawData = openDraw.draw;
           
-          if (drawData && drawData.draw_id) {
-            targetDrawId = String(drawData.draw_id);
-            targetPaisId = drawData.pais_id ?? null;
-            targetDrawAt = drawData.draw_date ?? null;
+          if (drawData && drawData.LotteryNumber) {
+            targetDrawId = null; // оставить пустым до подтверждения из Lotto Sheli
+            targetPaisId = drawData.LotteryNumber ?? null;
+            targetDrawAt = drawData.nextLottoryDate ?? null;
             targetDrawSnapshotJson = JSON.stringify(drawData);
           }
         } catch (drawErr) {
-          console.warn("Could not fetch latest draw, creating batch without draw info:", drawErr);
+          console.warn("Could not fetch open draw, creating batch without draw info:", drawErr);
         }
 
         const batchResponse = await createBatch({
