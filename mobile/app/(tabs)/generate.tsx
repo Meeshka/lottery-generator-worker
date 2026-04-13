@@ -78,8 +78,6 @@ export default function GenerateTicketsScreen() {
       const tickets = response.tickets || [];
 
       try {
-        const batchKey = `mobile-${Date.now()}`;
-        
         let targetDrawId: string | null = null;
         let targetPaisId: number | null = null;
         let targetDrawAt: string | null = null;
@@ -100,7 +98,6 @@ export default function GenerateTicketsScreen() {
         }
 
         const batchResponse = await createBatch({
-          batchKey,
           targetDrawId,
           targetPaisId,
           targetDrawAt,

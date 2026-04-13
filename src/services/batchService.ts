@@ -26,7 +26,7 @@ import {
 } from "../utils/lottoApi";
 
 export interface CreateBatchWithTicketsInput {
-  batchKey: string;
+  batchKey?: string | null;
   targetDrawId?: string | null;
   targetPaisId?: number | null;
   targetDrawAt?: string | null;
@@ -119,7 +119,7 @@ export async function createBatchWithTickets(
   input: CreateBatchWithTicketsInput,
 ): Promise<BatchWithTickets> {
   if (!input.batchKey || !input.batchKey.trim()) {
-    throw new Error("batchKey is required");
+    // batchKey is optional, will be auto-generated if missing
   }
 
   if (!Array.isArray(input.tickets) || input.tickets.length === 0) {
@@ -131,7 +131,7 @@ export async function createBatchWithTickets(
   }
 
   const createInput: CreateBatchInput = {
-    batchKey: input.batchKey.trim(),
+    batchKey: input.batchKey?.trim() || crypto.randomUUID(),
     targetDrawId: input.targetDrawId ?? null,
     targetPaisId: input.targetPaisId ?? null,
     targetDrawAt: input.targetDrawAt ?? null,

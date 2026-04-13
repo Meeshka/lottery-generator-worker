@@ -554,7 +554,7 @@ Note: `targetPaisId` is a number, not a string.
 
 Validation rules:
 
-- `batchKey` is required
+- `batchKey` is optional; if not provided, a UUID will be auto-generated
 - `tickets` must not be empty
 - each `ticketIndex` must be a positive integer
 - each ticket must contain exactly 6 unique numbers in range `1..37`

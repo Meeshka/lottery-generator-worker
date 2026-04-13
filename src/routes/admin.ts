@@ -24,7 +24,7 @@ import { upsertDraw } from "../repositories/drawsRepo";
 import { generateOtp, validateOtp, LottoAuthError } from "../utils/lottoAuth";
 
 interface CreateBatchRequestBody {
-  batchKey: string;
+  batchKey?: string | null;
   targetDrawId?: string | null;
   targetPaisId?: number | null;
   targetDrawAt?: string | null;
