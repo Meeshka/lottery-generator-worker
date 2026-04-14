@@ -12,9 +12,11 @@ class Default(WorkerEntrypoint):
     async def fetch(self, request):
         try:
             url = str(request.url)
+            print(f"[DEBUG] entry.py: Received request: {request.method} {url}")
             
             # Recalculate weights endpoint
             if url.endswith('/recalculate-weights'):
+                print(f"[DEBUG] entry.py: Matched /recalculate-weights endpoint")
                 if request.method != 'POST':
                     return Response(
                         json.dumps({'ok': False, 'error': 'Method Not Allowed'}),
