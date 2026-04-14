@@ -52,3 +52,70 @@ class Default(WorkerEntrypoint):
                 status=500,
                 headers={"Content-Type": "application/json"},
             )
+
+# Recalculate weights endpoint
+if url.endswith('/recalculate-weights'):
+    if request.method != 'POST':
+        return Response(
+            json.dumps({'ok': False, 'error': 'Method Not Allowed'}),
+            status=405,
+            headers={'Content-Type': 'application/json'},
+        )
+
+    body = await request.json()
+    access_token = body.get('accessToken')
+
+    if not access_token:
+        return Response(
+            json.dumps({'ok': False, 'error': 'accessToken is required'}),
+            status=400,
+            headers={'Content-Type': 'application/json'},
+        )
+
+    try:
+        from .lotto_update import update_history_and_weights
+    except ImportError:
+        from lotto_update import update_history_and_weights
+
+    import os
+    import tempfile
+    import time
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        auth_path = f.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        token_path = f.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+        history_path = f.name
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        weights_path = f.name
+
+    try:
+        with open(token_path, 'w') as f:
+            json.dump({'accessToken': access_token, 'savedAt': int(time.time())}, f)
+
+        with open(auth_path, 'w') as f:
+            json.dump({}, f)
+
+        weights_data = update_history_and_weights(
+            auth_path=auth_path,
+            token_path=token_path,
+            history_path=history_path,
+            weights_path=weights_path,
+        )
+
+        return Response(
+            json.dumps({'ok': True, 'weights': weights_data}),
+            headers={'Content-Type': 'application/json'},
+        )
+
+    finally:
+        for path in [auth_path, token_path, history_path, weights_path]:
+            try:
+                os.unlink(path)
+            except:
+                pass
+

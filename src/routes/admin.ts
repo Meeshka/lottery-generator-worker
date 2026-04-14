@@ -21,6 +21,7 @@ import {
   importBatchResults,
 } from "../services/resultService";
 import { upsertDraw, getDrawByDrawId } from "../repositories/drawsRepo";
+import { insertWeights } from "../repositories/weightsRepo";
 import { generateOtp, validateOtp, LottoAuthError } from "../utils/lottoAuth";
 
 interface CreateBatchRequestBody {
@@ -41,6 +42,12 @@ interface ImportResultsRequestBody {
 
 interface ImportDrawsRequestBody {
   draws: DrawInput[];
+}
+
+interface ImportWeightsRequestBody {
+  versionKey: string;
+  weightsJson: string;
+  sourceDrawCount: number | null;
 }
 
 interface SyncConfirmationRequestBody {
@@ -153,6 +160,27 @@ export async function handleAdminRoute(
         ok: true,
         count: newDrawsCount,
         draws: upsertedDraws,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/import/weights" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<ImportWeightsRequestBody>(request);
+
+      const inserted = await insertWeights(env.DB, {
+        versionKey: body.versionKey,
+        weightsJson: body.weightsJson,
+        sourceDrawCount: body.sourceDrawCount ?? null,
+      });
+
+      return jsonResponse({
+        ok: true,
+        weights: inserted,
       });
     } catch (error) {
       return badRequestResponse(

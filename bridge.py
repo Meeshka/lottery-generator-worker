@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import json
 import os
 import sys
@@ -13,6 +14,12 @@ import urllib.error
 import urllib.request
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
+
+# Add py-engine/src to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(script_dir, "py-engine", "src")
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 import draw_history
 import lottery_generator as lg
@@ -148,6 +155,40 @@ def sync_local_data(
     
     res = import_draws_to_worker(base_url, admin_key, history_path)
     print(f"Imported draws to Worker: {res.get('count', 0)} draws")
+    
+    # Import weights to Worker
+    import_weights_to_worker(base_url, admin_key, weights_path)
+
+
+def import_weights_to_worker(
+    base_url: str,
+    admin_key: str,
+    weights_path: str,
+) -> None:
+    if not os.path.exists(weights_path):
+        print(f"Weights file not found: {weights_path}")
+        return
+    
+    with open(weights_path, "r", encoding="utf-8") as f:
+        weights_data = json.load(f)
+    
+    # Generate version key from current timestamp
+    version_key = datetime.datetime.now().isoformat()
+    source_draw_count = weights_data.get("n_draws_used")
+    
+    body = {
+        "versionKey": version_key,
+        "weightsJson": json.dumps(weights_data),
+        "sourceDrawCount": source_draw_count,
+    }
+    
+    res = http_json(
+        "POST",
+        f"{base_url}/admin/import/weights",
+        admin_key=admin_key,
+        body_obj=body,
+    )
+    print(f"Imported weights to Worker: version={version_key}, draws={source_draw_count}")
 
 
 def get_current_weights_version(base_url: str) -> Optional[str]:
