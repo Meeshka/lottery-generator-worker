@@ -45,11 +45,8 @@ export default function GenerateTicketsScreen() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [clusterDescriptions, setClusterDescriptions] = useState<Record<string, string>>({
     "-": "No ML cluster. Using calculated weights",
-    "1": "Lowest grouping - tickets are more spread out across number ranges",
-    "2": "Low grouping - balanced spread with moderate clustering",
-    "3": "High grouping - tickets tend to cluster together in similar ranges",
-    "4": "Highest grouping - tickets are heavily clustered in similar number ranges",
   });
+  const [availableClusters, setAvailableClusters] = useState<string[]>(["-", "1", "2", "3", "4"]);
 
   useEffect(() => {
     fetchClusterDescriptions();
@@ -64,11 +61,15 @@ export default function GenerateTicketsScreen() {
           const descriptions: Record<string, string> = {
             "-": "No ML cluster. Using calculated weights",
           };
+          const clusterIds: string[] = ["-"];
+          
           for (const [key, value] of Object.entries(weightsData.clustering.clusters)) {
             const clusterNum = key.replace("cluster_", "");
             descriptions[clusterNum] = (value as any).description || "";
+            clusterIds.push(clusterNum);
           }
           setClusterDescriptions(descriptions);
+          setAvailableClusters(clusterIds);
         }
       }
     } catch (err) {
@@ -92,9 +93,13 @@ export default function GenerateTicketsScreen() {
       return;
     }
 
-    if (clusterValue !== undefined && (clusterValue < 1 || clusterValue > 4)) {
-      setError("Cluster target must be between 1 and 4");
-      return;
+    if (clusterValue !== undefined) {
+      const maxCluster = Math.max(...availableClusters.filter(c => c !== "-").map(c => parseInt(c, 10)));
+      const minCluster = Math.min(...availableClusters.filter(c => c !== "-").map(c => parseInt(c, 10)));
+      if (clusterValue < minCluster || clusterValue > maxCluster) {
+        setError(`Cluster target must be between ${minCluster} and ${maxCluster}`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -228,7 +233,9 @@ export default function GenerateTicketsScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Cluster Target (1-4, Optional)</Text>
+            <Text style={styles.label}>
+              Cluster Target ({availableClusters.filter(c => c !== "-").join(", ")}, Optional)
+            </Text>
             <Pressable
               style={styles.dropdown}
               onPress={() => setShowClusterDropdown(true)}
@@ -255,7 +262,7 @@ export default function GenerateTicketsScreen() {
             >
               <View style={styles.dropdownModal} onStartShouldSetResponder={() => true}>
                 <Text style={styles.dropdownTitle}>Select Cluster</Text>
-                {["-", "1", "2", "3", "4"].map((option) => (
+                {availableClusters.map((option) => (
                   <Pressable
                     key={option}
                     style={[

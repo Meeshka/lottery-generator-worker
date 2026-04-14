@@ -190,6 +190,8 @@ Current mobile functionality includes:
 - health checks against the Worker
 - Lotto OTP login through Worker proxy routes
 - **Generate tickets** - Direct ticket generation via the Python Worker engine with configurable parameters (count, max common, seed, cluster target). Generated batches are automatically saved to the database with open draw information from `/draws/open`.
+- **Update draws** - Fetches draws from Lotto Sheli API and imports them to the Worker DB. Shows the count of new draws added and total draws in the database.
+- **Recalculate weights** - Triggers weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. This provides full weight recalculation functionality without requiring the bridge CLI.
 - batch listing
 - batch detail, summary, and result views
 
@@ -357,6 +359,47 @@ Response (error):
 - `maxCommon`: Maximum allowed common numbers with history/current batch (default: 3)
 - `seed`: Optional random seed for reproducibility
 - `clusterTarget`: Optional target cluster ID (1-4) for distribution-based generation
+
+#### `POST /recalculate-weights`
+
+Recalculates weights using the Python engine's weight calculation logic. Used by the main Worker to trigger weight recalculation.
+
+Request body:
+
+```json
+{
+  "accessToken": "lotto-access-token"
+}
+```
+
+Response (success):
+
+```json
+{
+  "ok": true,
+  "weights": {
+    "segments": {...},
+    "clustering": {...},
+    "n_draws_used": 47
+  }
+}
+```
+
+Response (error):
+
+```json
+{
+  "ok": false,
+  "error": "error message"
+}
+```
+
+This endpoint:
+- Fetches draws from Lotto API using the provided access token
+- Updates local draw history with new draws
+- Recalculates weights using the Python engine's weight calculation logic
+- Performs clustering analysis on the draw history
+- Returns the recalculated weights with clustering data
 
 #### `GET /health`
 
@@ -528,6 +571,38 @@ Response:
 
 This endpoint is used by the `bridge.py sync` command to keep the Worker DB in sync with local `draw_history.jsonl`.
 
+#### `POST /admin/import/weights`
+
+Imports weight data into the Worker DB. This endpoint marks all existing weights as not current and inserts the new weights as current.
+
+Request body:
+
+```json
+{
+  "versionKey": "2026-04-15T00:00:00.000Z",
+  "weightsJson": "{\"segments\":{...},\"clustering\":{...}}",
+  "sourceDrawCount": 47
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "weights": {
+    "id": 2,
+    "version_key": "2026-04-15T00:00:00.000Z",
+    "weights_json": "...",
+    "source_draw_count": 47,
+    "is_current": 1,
+    "created_at": "2026-04-15 00:00:00"
+  }
+}
+```
+
+This endpoint is used by the `bridge.py sync` command to keep the Worker DB weights in sync with local `weights.json`.
+
 #### `POST /admin/update-draws`
 
 Fetches draws from the Lotto Sheli API using an access token and imports them into the Worker DB. Used by the mobile app to update draw data.
@@ -558,6 +633,42 @@ This endpoint:
 - Transforms the API response to match the import format
 - Calls `/admin/import/draws` internally to upsert the draws
 - Returns the count of new draws and the total draw count in the database
+
+#### `POST /admin/recalculate-weights`
+
+Recalculates weights using the Python Worker and imports them to the Worker DB. Used by the mobile app to trigger weight recalculation without using the bridge CLI.
+
+Request body:
+
+```json
+{
+  "accessToken": "lotto-access-token"
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "message": "Weights recalculated and imported successfully",
+  "weights": {
+    "segments": {...},
+    "clustering": {...},
+    "n_draws_used": 47
+  },
+  "importedDraws": 5,
+  "totalDraws": 47
+}
+```
+
+This endpoint:
+- Proxies the request to the Python Worker's `/recalculate-weights` endpoint
+- Python Worker fetches draws from Lotto API using the access token
+- Python Worker recalculates weights with clustering analysis
+- Imports the recalculated weights to the Worker DB via `/admin/import/weights`
+- Imports draws from the weights data via `/admin/import/draws`
+- Returns the recalculated weights, import counts, and total draw count
 
 #### `POST /admin/batches/create`
 

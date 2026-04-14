@@ -92,6 +92,113 @@ export default {
       return jsonResponse(row ?? null);
     }
 
+    if (url.pathname === "/admin/recalculate-weights" && request.method === "POST") {
+      try {
+        const body = await request.json() as { accessToken?: string };
+        const accessToken = body.accessToken;
+
+        if (!accessToken) {
+          return jsonResponse({
+            ok: false,
+            error: "accessToken is required",
+          }, 400);
+        }
+
+        // Call Python Worker to recalculate weights
+        const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
+        const pythonResponse = await fetch(`${pythonWorkerUrl}/recalculate-weights`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ accessToken }),
+        });
+
+        if (!pythonResponse.ok) {
+          const errorText = await pythonResponse.text();
+          return jsonResponse({
+            ok: false,
+            error: `Failed to recalculate weights in Python Worker: HTTP ${pythonResponse.status} - ${errorText}`,
+          }, pythonResponse.status);
+        }
+
+        const pythonData = await pythonResponse.json();
+
+        if (!pythonData.ok) {
+          return jsonResponse({
+            ok: false,
+            error: pythonData.error || "Failed to recalculate weights",
+          }, 500);
+        }
+
+        // Import the recalculated weights to Worker DB
+        const weightsJson = JSON.stringify(pythonData.weights);
+        const sourceDrawCount = pythonData.weights.n_draws_used;
+
+        const { handleAdminRoute } = await import("./routes/admin");
+        const importWeightsRequest = new Request(
+          new URL("/admin/import/weights", url),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-key": env.ADMIN_KEY,
+            },
+            body: JSON.stringify({
+              versionKey: new Date().toISOString(),
+              weightsJson: weightsJson,
+              sourceDrawCount: sourceDrawCount,
+            }),
+          }
+        );
+
+        const importWeightsResponse = await handleAdminRoute(importWeightsRequest, env);
+        const importWeightsData = await importWeightsResponse.json();
+
+        // Also import draws to Worker DB
+        const importDraws = pythonData.weights.draw_history?.map((draw: any) => ({
+          drawId: String(draw.id),
+          drawDate: draw.endsAt,
+          numbersJson: JSON.stringify(draw.numbers || []),
+          strongNumber: draw.strong || null,
+          rawJson: JSON.stringify(draw),
+          paisId: draw.paisId || null,
+        })) || [];
+
+        if (importDraws.length > 0) {
+          const importDrawsRequest = new Request(
+            new URL("/admin/import/draws", url),
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-admin-key": env.ADMIN_KEY,
+              },
+              body: JSON.stringify({ draws: importDraws }),
+            }
+          );
+
+          await handleAdminRoute(importDrawsRequest, env);
+        }
+
+        const totalDraws = await countDraws(env.DB);
+
+        return jsonResponse({
+          ok: true,
+          message: "Weights recalculated and imported successfully",
+          weights: pythonData.weights,
+          importedDraws: importDraws.length,
+          totalDraws: totalDraws,
+        });
+      } catch (error) {
+        console.error("[recalculate-weights] Error:", error);
+        return jsonResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        }, 500);
+      }
+    }
+
     if (url.pathname === "/admin/update-draws" && request.method === "POST") {
       try {
         //console.log("[update-draws] Starting update-draws request");

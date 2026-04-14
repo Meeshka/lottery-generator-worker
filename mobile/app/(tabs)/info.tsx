@@ -13,6 +13,7 @@ import {
   getLatestDraw,
   updateDraws,
   validateToken,
+  recalculateWeights,
 } from "../../services/api";
 import {
   getAccessToken,
@@ -26,6 +27,8 @@ export default function InfoScreen() {
   const [latestDrawDate, setLatestDrawDate] = useState<string | null>(null);
   const [updatingDraws, setUpdatingDraws] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
+  const [recalculatingWeights, setRecalculatingWeights] = useState(false);
+  const [recalcResult, setRecalcResult] = useState<string | null>(null);
 
   useEffect(() => {
     checkAllStates();
@@ -155,6 +158,44 @@ export default function InfoScreen() {
     }
   }
 
+  async function handleRecalculateWeights() {
+    const token = await getAccessToken();
+    if (!token) {
+      Alert.alert("Error", "No access token found. Please login first.");
+      return;
+    }
+
+    if (!tokenValid) {
+      Alert.alert("Error", "Token is invalid. Please login again.");
+      return;
+    }
+
+    setRecalculatingWeights(true);
+    setRecalcResult(null);
+
+    try {
+      const result = await recalculateWeights(token);
+      
+      if (result.ok) {
+        const message = result.message || "Weights recalculated successfully";
+        setRecalcResult(message);
+        Alert.alert("Success", message);
+        
+        // Refresh latest draw date
+        await checkLatestDraw();
+      } else {
+        setRecalcResult(`Error: ${result.error}`);
+        Alert.alert("Error", result.error || "Failed to recalculate weights");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setRecalcResult(`Error: ${message}`);
+      Alert.alert("Error", message);
+    } finally {
+      setRecalculatingWeights(false);
+    }
+  }
+
   function getLoginStateText() {
     switch (loginState) {
       case "checking":
@@ -237,6 +278,22 @@ export default function InfoScreen() {
           )}
         </Pressable>
 
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            pressed && styles.buttonPressed,
+            (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
+          ]}
+          onPress={handleRecalculateWeights}
+          disabled={recalculatingWeights || !tokenValid || loginState !== "logged_in"}
+        >
+          {recalculatingWeights ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Recalculate Weights</Text>
+          )}
+        </Pressable>
+
         {loginState === "logged_in" && (
           <Pressable
             style={({ pressed }) => [
@@ -254,6 +311,13 @@ export default function InfoScreen() {
           <View style={styles.resultCard}>
             <Text style={styles.resultLabel}>Update Result</Text>
             <Text style={styles.resultText}>{updateResult}</Text>
+          </View>
+        )}
+
+        {recalcResult && (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultLabel}>Recalculation Result</Text>
+            <Text style={styles.resultText}>{recalcResult}</Text>
           </View>
         )}
       </View>
