@@ -161,7 +161,7 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
     optimal_result = draw_clustering.find_optimal_clusters(
         processed_draws,
         segment_weights=seg_weights,
-        max_clusters=8,
+        max_clusters=5,
         min_clusters=2
     )
     
@@ -170,7 +170,8 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
         result = draw_clustering.weighted_kmeans_clustering(
             processed_draws,
             segment_weights=seg_weights,
-            n_clusters=4
+            n_clusters=4,
+            max_iterations=30
         )
     else:
         result = optimal_result["clustering_result"]

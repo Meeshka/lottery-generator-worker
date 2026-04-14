@@ -53,15 +53,15 @@ def _get_access_token_interactive(auth: Dict[str, Any], token_path: str) -> str:
     return access
 
 
-def update_history_and_weights(
+def fetch_draws_from_api(
     auth_path: str = "auth.json",
     token_path: str = "token.json",
     history_path: str = "draw_history.jsonl",
-    weights_path: str = "weights.json",
-) -> Dict[str, Any]:
-    """Fetch latest draws, append only new ids, recompute weights on full history.
+) -> int:
+    """Fetch latest draws from Lotto API and append to history.
 
-    Returns the computed weights dict.
+    Returns the number of new draws added.
+    Requires auth.json with idNumber and phoneNumber.
     """
     auth = _load_json(auth_path)
     token_obj = _load_json(token_path)
@@ -87,11 +87,38 @@ def update_history_and_weights(
     backfilled = draw_history.backfill_pais_ids_jsonl(history_path, draws)
     print(f"Обновлено paisId в существующей истории: {backfilled} -> {history_path}")
 
+    return added
+
+
+def recalculate_weights(
+    history_path: str = "draw_history.jsonl",
+    weights_path: str = "weights.json",
+) -> Dict[str, Any]:
+    """Recalculate weights from existing draw history.
+
+    Returns the computed weights dict.
+    Does NOT fetch from API - uses existing history file.
+    """
     all_draws = draw_history.load_history(history_path)
     w = weights.compute_all_weights(all_draws)
     _save_json(weights_path, w)
     print(f"weights.json обновлён -> {weights_path}")
     return w
+
+
+def update_history_and_weights(
+    auth_path: str = "auth.json",
+    token_path: str = "token.json",
+    history_path: str = "draw_history.jsonl",
+    weights_path: str = "weights.json",
+) -> Dict[str, Any]:
+    """Fetch latest draws, append only new ids, recompute weights on full history.
+
+    Returns the computed weights dict.
+    Wrapper that calls fetch_draws_from_api then recalculate_weights.
+    """
+    fetch_draws_from_api(auth_path, token_path, history_path)
+    return recalculate_weights(history_path, weights_path)
 
 if __name__ == "__main__":
     update_history_and_weights()

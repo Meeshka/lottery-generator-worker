@@ -94,16 +94,6 @@ export default {
 
     if (url.pathname === "/admin/recalculate-weights" && request.method === "POST") {
       try {
-        const body = await request.json() as { accessToken?: string };
-        const accessToken = body.accessToken;
-
-        if (!accessToken) {
-          return jsonResponse({
-            ok: false,
-            error: "accessToken is required",
-          }, 400);
-        }
-
         // Call Python Worker to recalculate weights
         const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
         const pythonResponse = await fetch(`${pythonWorkerUrl}/recalculate-weights`, {
@@ -111,7 +101,7 @@ export default {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ accessToken }),
+          body: JSON.stringify({}),
         });
 
         if (!pythonResponse.ok) {
