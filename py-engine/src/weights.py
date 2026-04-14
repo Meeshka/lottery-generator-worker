@@ -5,15 +5,18 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 # Import clustering functionality
+CLUSTERING_IMPORT_ERROR = None
+
 try:
     from . import draw_clustering
     CLUSTERING_AVAILABLE = True
-except ImportError:
+except ImportError as e1:
     try:
         import draw_clustering
         CLUSTERING_AVAILABLE = True
-    except ImportError:
+    except ImportError as e2:
         CLUSTERING_AVAILABLE = False
+        CLUSTERING_IMPORT_ERROR = f"relative import failed: {e1}; absolute import failed: {e2}"
 
 # Сегменты как у тебя: 1–9, 10–19, 20–29, 30–37 (включительно)
 SEG_SIZES = [9, 10, 10, 8]
@@ -143,8 +146,10 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
     Uses silhouette analysis to determine optimal number of clusters.
     """
     if not CLUSTERING_AVAILABLE or len(draws) < 4:
-        return {"error": "Insufficient data or clustering module not available"}
-    
+        return {
+            "error": "Clustering module not available",
+            "details": CLUSTERING_IMPORT_ERROR,
+        }
     # Process draws to add distribution field
     processed_draws = []
     for d in draws:
@@ -174,8 +179,7 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
         result = draw_clustering.weighted_kmeans_clustering(
             processed_draws,
             segment_weights=seg_weights,
-            n_clusters=4,
-            max_iterations=30
+            n_clusters=4
         )
     else:
         result = optimal_result["clustering_result"]
