@@ -57,6 +57,31 @@ export async function getDrawByPaisId(
   return row ?? null;
 }
 
+export async function getDrawByDrawId(
+  db: D1Database,
+  drawId: string,
+): Promise<DrawRow | null> {
+  const row = await db
+    .prepare(`
+      SELECT
+        id,
+        draw_id,
+        draw_date,
+        numbers_json,
+        strong_number,
+        raw_json,
+        pais_id,
+        created_at
+      FROM draws
+      WHERE draw_id = ?
+      LIMIT 1
+    `)
+    .bind(drawId)
+    .first<DrawRow>();
+
+  return row ?? null;
+}
+
 export async function insertDraw(
   db: D1Database,
   input: {
@@ -169,4 +194,15 @@ export async function upsertDraw(
   }
 
   return row;
+}
+
+export async function countDraws(db: D1Database): Promise<number> {
+  const result = await db
+    .prepare(`
+      SELECT COUNT(*) as count
+      FROM draws
+    `)
+    .first<{ count: number }>();
+
+  return result?.count ?? 0;
 }
