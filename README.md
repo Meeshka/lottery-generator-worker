@@ -523,7 +523,41 @@ Response:
 }
 ```
 
+- `count`: Number of new draws that were inserted (does not count updates to existing draws)
+- `draws`: Array of all upserted draw records
+
 This endpoint is used by the `bridge.py sync` command to keep the Worker DB in sync with local `draw_history.jsonl`.
+
+#### `POST /admin/update-draws`
+
+Fetches draws from the Lotto Sheli API using an access token and imports them into the Worker DB. Used by the mobile app to update draw data.
+
+Request body:
+
+```json
+{
+  "accessToken": "lotto-access-token"
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "importedCount": 5,
+  "totalDraws": 47
+}
+```
+
+- `importedCount`: Number of new draws that were inserted (does not count updates to existing draws)
+- `totalDraws`: Total number of draws in the database after the import
+
+This endpoint:
+- Fetches draws from `https://api.lottosheli.com/api/v1/client/draws/DRAW_LOTTO` using the provided access token
+- Transforms the API response to match the import format
+- Calls `/admin/import/draws` internally to upsert the draws
+- Returns the count of new draws and the total draw count in the database
 
 #### `POST /admin/batches/create`
 

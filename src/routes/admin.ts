@@ -20,7 +20,7 @@ import {
   getBatchResults,
   importBatchResults,
 } from "../services/resultService";
-import { upsertDraw } from "../repositories/drawsRepo";
+import { upsertDraw, getDrawByDrawId } from "../repositories/drawsRepo";
 import { generateOtp, validateOtp, LottoAuthError } from "../utils/lottoAuth";
 
 interface CreateBatchRequestBody {
@@ -130,22 +130,28 @@ export async function handleAdminRoute(
       const body = await readJsonBody<ImportDrawsRequestBody>(request);
 
       const draws = body.draws ?? [];
-      const upsertedDraws = await Promise.all(
-        draws.map((draw) =>
-          upsertDraw(env.DB, {
-            drawId: draw.drawId,
-            drawDate: draw.drawDate,
-            numbersJson: draw.numbersJson,
-            strongNumber: draw.strongNumber ?? null,
-            rawJson: draw.rawJson ?? null,
-            paisId: draw.paisId ?? null,
-          }),
-        ),
-      );
+      const upsertedDraws: any[] = [];
+      let newDrawsCount = 0;
+
+      for (const draw of draws) {
+        const existing = await getDrawByDrawId(env.DB, draw.drawId);
+        if (!existing) {
+          newDrawsCount++;
+        }
+        const upserted = await upsertDraw(env.DB, {
+          drawId: draw.drawId,
+          drawDate: draw.drawDate,
+          numbersJson: draw.numbersJson,
+          strongNumber: draw.strongNumber ?? null,
+          rawJson: draw.rawJson ?? null,
+          paisId: draw.paisId ?? null,
+        });
+        upsertedDraws.push(upserted);
+      }
 
       return jsonResponse({
         ok: true,
-        count: upsertedDraws.length,
+        count: newDrawsCount,
         draws: upsertedDraws,
       });
     } catch (error) {

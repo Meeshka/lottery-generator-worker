@@ -3,6 +3,7 @@ import { handleAdminRoute } from "./routes/admin";
 import { handleAuthRoute } from "./routes/auth";
 import { handleBatchesRoute } from "./routes/batches";
 import { handleStatsRoute } from "./routes/stats";
+import { countDraws } from "./repositories/drawsRepo";
 import { jsonResponse, notFoundResponse } from "./utils/response";
 
 export default {
@@ -177,11 +178,14 @@ export default {
 
         //console.log("[update-draws] Import response:", importData);
 
+        // Get actual total count from database
+        const totalDraws = await countDraws(env.DB);
+
         // Return the response with the field names the mobile app expects
         return jsonResponse({
           ok: importData.ok,
           importedCount: importData.count,
-          totalDraws: importDraws.length,
+          totalDraws: totalDraws,
         });
       } catch (error) {
         console.error("[update-draws] Error:", error);
