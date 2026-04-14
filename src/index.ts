@@ -177,7 +177,12 @@ export default {
 
         console.log("[update-draws] Import response:", importData);
 
-        return jsonResponse(importData);
+        // Return the response with the field names the mobile app expects
+        return jsonResponse({
+          ok: importData.ok,
+          importedCount: importData.count,
+          totalDraws: importDraws.length,
+        });
       } catch (error) {
         console.error("[update-draws] Error:", error);
         return jsonResponse({

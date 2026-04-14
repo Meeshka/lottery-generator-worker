@@ -77,7 +77,17 @@ export default function InfoScreen() {
     try {
       const latest = await getLatestDraw();
       if (latest && latest.draw_date) {
-        setLatestDrawDate(latest.draw_date);
+        const date = new Date(latest.draw_date);
+        const formatted = date.toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        });
+        setLatestDrawDate(formatted);
       }
     } catch (err) {
       console.error("Error fetching latest draw:", err);

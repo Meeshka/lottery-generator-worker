@@ -694,7 +694,6 @@ src/
 │   ├── ticketsRepo.ts    # Ticket CRUD
 │   └── resultsRepo.ts    # Result CRUD
 ├── domain/                # Domain logic
-│   ├── generator/       # Generator domain logic
 │   └── validation/      # Ticket validation and prize calculation
 └── utils/                 # Utility functions
     ├── json.ts           # JSON body parsing
