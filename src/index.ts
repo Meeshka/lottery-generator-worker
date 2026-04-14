@@ -41,6 +41,18 @@ export default {
       return jsonResponse(row ?? null);
     }
 
+    if (url.pathname === "/draws/all") {
+      const rows = await env.DB
+        .prepare(`
+          SELECT draw_id, draw_date, numbers_json, strong_number, raw_json
+          FROM draws
+          ORDER BY draw_date ASC, draw_id ASC
+        `)
+        .all();
+
+      return jsonResponse(rows.results || rows);
+    }
+
     if (url.pathname === "/draws/open") {
       try {
         const response = await fetch("https://www.pais.co.il/include/getNextLotteryDate.ashx?type=1", {
@@ -94,7 +106,7 @@ export default {
 
     if (url.pathname === "/admin/recalculate-weights" && request.method === "POST") {
       try {
-        // Call Python Worker to recalculate weights
+        // Call Python Worker to recalculate weights (Python Worker will fetch draws from main Worker)
         const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
         const pythonResponse = await fetch(`${pythonWorkerUrl}/recalculate-weights`, {
           method: "POST",

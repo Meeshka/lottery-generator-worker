@@ -39,6 +39,56 @@ class Default(WorkerEntrypoint):
                     weights_path = f.name
 
                 try:
+                    import json
+                    import urllib.request
+                    import urllib.error
+
+                    # Fetch draws from main Worker API
+                    main_worker_url = 'https://lottery-generator-worker.ushakov-ma.workers.dev'
+                    print(f"[DEBUG] entry.py: Fetching draws from main Worker: {main_worker_url}/draws/all")
+
+                    req = urllib.request.Request(
+                        f'{main_worker_url}/draws/all',
+                        headers={'User-Agent': 'python-worker/1.0'}
+                    )
+
+                    with urllib.request.urlopen(req) as response:
+                        if response.status != 200:
+                            raise Exception(f"Failed to fetch draws: HTTP {response.status}")
+                        draws_data = json.loads(response.read().decode('utf-8'))
+
+                    draws = draws_data if isinstance(draws_data, list) else draws_data.get('results', [])
+                    print(f"[DEBUG] entry.py: Fetched {len(draws)} draws from main Worker")
+
+                    # Write draws to history file
+                    with open(history_path, 'w') as f:
+                        for draw in draws:
+                            # Parse numbers_json if it's a string
+                            if isinstance(draw.get('numbers_json'), str):
+                                try:
+                                    draw['numbers'] = json.loads(draw['numbers_json'])
+                                except:
+                                    draw['numbers'] = []
+                            else:
+                                draw['numbers'] = draw.get('numbers_json', [])
+
+                            # Use raw_json if available, otherwise construct from fields
+                            if draw.get('raw_json'):
+                                if isinstance(draw['raw_json'], str):
+                                    f.write(draw['raw_json'] + '\n')
+                                else:
+                                    f.write(json.dumps(draw['raw_json']) + '\n')
+                            else:
+                                # Construct draw object
+                                draw_obj = {
+                                    'id': draw.get('draw_id'),
+                                    'endsAt': draw.get('draw_date'),
+                                    'numbers': draw.get('numbers', []),
+                                    'strong': draw.get('strong_number')
+                                }
+                                f.write(json.dumps(draw_obj) + '\n')
+
+                    print(f"[DEBUG] entry.py: Wrote {len(draws)} draws to history file")
                     print(f"[DEBUG] entry.py: Calling recalculate_weights")
                     weights_data = recalculate_weights(
                         history_path=history_path,
