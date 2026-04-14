@@ -91,6 +91,102 @@ export default {
       return jsonResponse(row ?? null);
     }
 
+    if (url.pathname === "/admin/update-draws" && request.method === "POST") {
+      try {
+        console.log("[update-draws] Starting update-draws request");
+        const body = await request.json() as { accessToken?: string };
+        const accessToken = body.accessToken;
+
+        console.log("[update-draws] AccessToken present:", !!accessToken);
+        console.log("[update-draws] AccessToken length:", accessToken?.length);
+
+        if (!accessToken) {
+          return jsonResponse({
+            ok: false,
+            error: "accessToken is required",
+          }, 400);
+        }
+
+        // Fetch draws from Lotto API using the access token
+        console.log("[update-draws] Fetching from Lotto API");
+        const lottoResponse = await fetch("https://api.lottosheli.com/api/v1/client/draws/DRAW_LOTTO?type=null", {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `otp ${accessToken}`,
+            "User-Agent": "lotto-worker/1.0",
+            "Origin": "https://lottosheli.com",
+            "Referer": "https://lottosheli.com/",
+          },
+        });
+
+        console.log("[update-draws] Lotto API response status:", lottoResponse.status);
+
+        if (!lottoResponse.ok) {
+          const errorText = await lottoResponse.text();
+          console.log("[update-draws] Lotto API error:", errorText);
+          return jsonResponse({
+            ok: false,
+            error: `Failed to fetch draws from Lotto API: HTTP ${lottoResponse.status} - ${errorText}`,
+          }, lottoResponse.status);
+        }
+
+        const drawsData = await lottoResponse.json();
+        console.log("[update-draws] Draws data received, count:", Array.isArray(drawsData) ? drawsData.length : "not an array");
+        
+        if (!Array.isArray(drawsData)) {
+          return jsonResponse({
+            ok: false,
+            error: `Invalid response from Lotto API: expected array, got ${typeof drawsData}`,
+          }, 500);
+        }
+
+        // Transform to match ImportDrawsRequestBody format
+        const importDraws = drawsData.map((draw: any) => {
+          const results = draw.results || {};
+          return {
+            drawId: String(draw.id),
+            drawDate: draw.endsAt,
+            numbersJson: JSON.stringify(results.numbers || []),
+            strongNumber: results.strongNumber || null,
+            rawJson: JSON.stringify(draw),
+            paisId: draw.paisId || null,
+          };
+        });
+
+        console.log("[update-draws] Transformed draws for import, count:", importDraws.length);
+
+        // Use existing admin import/draws endpoint
+        const { handleAdminRoute } = await import("./routes/admin");
+        const importRequest = new Request(
+          new URL("/admin/import/draws", url),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-key": env.ADMIN_KEY,
+            },
+            body: JSON.stringify({ draws: importDraws }),
+          }
+        );
+
+        console.log("[update-draws] Calling admin/import/draws with ADMIN_KEY:", !!env.ADMIN_KEY);
+
+        const importResponse = await handleAdminRoute(importRequest, env);
+        const importData = await importResponse.json();
+
+        console.log("[update-draws] Import response:", importData);
+
+        return jsonResponse(importData);
+      } catch (error) {
+        console.error("[update-draws] Error:", error);
+        return jsonResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        }, 500);
+      }
+    }
+
     if (url.pathname === "/tickets/generate" && request.method === "POST") {
       const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
       

@@ -225,3 +225,57 @@ export async function createBatch(options: {
 
   return res.json();
 }
+
+export async function updateDraws(accessToken: string) {
+  const res = await fetch(buildUrl("/admin/update-draws"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ accessToken }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to update draws - ${text}`);
+  }
+
+  return res.json();
+}
+
+export function validateToken(accessToken: string): boolean {
+  try {
+    // Split the JWT into parts
+    const parts = accessToken.split('.');
+    if (parts.length !== 3) {
+      return false;
+    }
+
+    // Decode the payload (second part)
+    const payload = parts[1];
+    const decoded = atob(payload);
+    const parsed = JSON.parse(decoded);
+
+    // Check if token has expiration
+    if (!parsed.exp) {
+      return true; // Token without expiration is considered valid
+    }
+
+    // Check if token is expired
+    const now = Math.floor(Date.now() / 1000);
+    return parsed.exp > now;
+  } catch (error) {
+    return false;
+  }
+}
+
+export async function getCurrentWeights() {
+  const res = await fetch(buildUrl("/weights/current"));
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return res.json();
+}

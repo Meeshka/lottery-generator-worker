@@ -6,6 +6,7 @@ Expo React Native mobile app for the lottery generator worker system. It uses th
 
 - View Worker health status
 - Login with Lotto OTP through Worker proxy routes
+- Generate tickets directly via the Python Worker engine with configurable parameters
 - View generated ticket batches
 - View batch summaries and result details
 - Store Lotto access tokens securely on device
@@ -42,7 +43,9 @@ You can then open the app in:
 ```text
 app/
 |-- (tabs)/
+|   |-- info.tsx       # Info/home screen
 |   |-- login.tsx      # Lotto OTP login screen
+|   |-- generate.tsx   # Generate tickets screen
 |   |-- batches.tsx    # Batch list screen
 |   |-- explore.tsx    # Placeholder screen
 |   `-- _layout.tsx    # Tab layout configuration
@@ -69,6 +72,7 @@ The app currently calls these Worker endpoints from `services/api.ts`:
 - `GET /batches/{id}/tickets`
 - `GET /batches/{id}/results`
 - `GET /batches/{id}/summary`
+- `POST /tickets/generate`
 - `POST /lotto/otp/generate`
 - `POST /lotto/otp/validate`
 
