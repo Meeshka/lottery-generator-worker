@@ -93,12 +93,12 @@ export default {
 
     if (url.pathname === "/admin/update-draws" && request.method === "POST") {
       try {
-        console.log("[update-draws] Starting update-draws request");
+        //console.log("[update-draws] Starting update-draws request");
         const body = await request.json() as { accessToken?: string };
         const accessToken = body.accessToken;
 
-        console.log("[update-draws] AccessToken present:", !!accessToken);
-        console.log("[update-draws] AccessToken length:", accessToken?.length);
+        //console.log("[update-draws] AccessToken present:", !!accessToken);
+        //console.log("[update-draws] AccessToken length:", accessToken?.length);
 
         if (!accessToken) {
           return jsonResponse({
@@ -108,7 +108,7 @@ export default {
         }
 
         // Fetch draws from Lotto API using the access token
-        console.log("[update-draws] Fetching from Lotto API");
+        //console.log("[update-draws] Fetching from Lotto API");
         const lottoResponse = await fetch("https://api.lottosheli.com/api/v1/client/draws/DRAW_LOTTO?type=null", {
           method: "GET",
           headers: {
@@ -120,7 +120,7 @@ export default {
           },
         });
 
-        console.log("[update-draws] Lotto API response status:", lottoResponse.status);
+        //console.log("[update-draws] Lotto API response status:", lottoResponse.status);
 
         if (!lottoResponse.ok) {
           const errorText = await lottoResponse.text();
@@ -132,7 +132,7 @@ export default {
         }
 
         const drawsData = await lottoResponse.json();
-        console.log("[update-draws] Draws data received, count:", Array.isArray(drawsData) ? drawsData.length : "not an array");
+        //console.log("[update-draws] Draws data received, count:", Array.isArray(drawsData) ? drawsData.length : "not an array");
         
         if (!Array.isArray(drawsData)) {
           return jsonResponse({
@@ -154,7 +154,7 @@ export default {
           };
         });
 
-        console.log("[update-draws] Transformed draws for import, count:", importDraws.length);
+        //console.log("[update-draws] Transformed draws for import, count:", importDraws.length);
 
         // Use existing admin import/draws endpoint
         const { handleAdminRoute } = await import("./routes/admin");
@@ -170,14 +170,19 @@ export default {
           }
         );
 
-        console.log("[update-draws] Calling admin/import/draws with ADMIN_KEY:", !!env.ADMIN_KEY);
+        //console.log("[update-draws] Calling admin/import/draws with ADMIN_KEY:", !!env.ADMIN_KEY);
 
         const importResponse = await handleAdminRoute(importRequest, env);
         const importData = await importResponse.json();
 
-        console.log("[update-draws] Import response:", importData);
+        //console.log("[update-draws] Import response:", importData);
 
-        return jsonResponse(importData);
+        // Return the response with the field names the mobile app expects
+        return jsonResponse({
+          ok: importData.ok,
+          importedCount: importData.count,
+          totalDraws: importDraws.length,
+        });
       } catch (error) {
         console.error("[update-draws] Error:", error);
         return jsonResponse({
