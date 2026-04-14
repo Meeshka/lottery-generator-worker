@@ -279,3 +279,48 @@ export async function getCurrentWeights() {
 
   return res.json();
 }
+
+export async function recalculateWeights(accessToken: string) {
+  const res = await fetch(buildUrl("/admin/recalculate-weights"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ accessToken }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to recalculate weights - ${text}`);
+  }
+
+  return res.json();
+}
+
+export async function importWeights(weightsJson: string, sourceDrawCount: number) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl("/admin/import/weights"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+    body: JSON.stringify({
+      versionKey: new Date().toISOString(),
+      weightsJson: weightsJson,
+      sourceDrawCount: sourceDrawCount,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to import weights - ${text}`);
+  }
+
+  return res.json();
+}
