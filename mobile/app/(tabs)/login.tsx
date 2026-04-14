@@ -11,15 +11,18 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { generateOtp, validateOtp, healthCheck } from "../../services/api";
+import { useRouter } from "expo-router";
+import { generateOtp, validateOtp, healthCheck, validateToken } from "../../services/api";
 import {
   saveTokens,
   saveUserCredentials,
   getUserCredentials,
   getAccessToken,
+  clearTokens,
 } from "../../services/secureStorage";
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [idNumber, setIdNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -47,7 +50,14 @@ export default function LoginScreen() {
   async function checkLoginStatus() {
     try {
       const token = await getAccessToken();
-      setIsLoggedIn(!!token);
+      if (!token) {
+        setIsLoggedIn(false);
+        return;
+      }
+
+      // Validate token by checking JWT expiration
+      const isValid = validateToken(token);
+      setIsLoggedIn(isValid);
     } catch (err) {
       console.error("Error checking login status:", err);
       setIsLoggedIn(false);
@@ -111,11 +121,26 @@ export default function LoginScreen() {
       Alert.alert("Success", "Login successful!");
       setOtpCode("");
       setIsLoggedIn(true);
+      
+      // Navigate to info tab to refresh and show updated state
+      router.push("/(tabs)/info");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await clearTokens();
+      setIsLoggedIn(false);
+      setOtpCode("");
+      Alert.alert("Logged Out", "You have been logged out successfully");
+    } catch (err) {
+      console.error("Error logging out:", err);
+      Alert.alert("Error", "Failed to log out");
     }
   }
 
@@ -135,24 +160,26 @@ export default function LoginScreen() {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>ID Number</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, isLoggedIn && styles.inputDisabled]}
               value={idNumber}
               onChangeText={setIdNumber}
               placeholder="Enter ID number"
               autoCapitalize="none"
               keyboardType="number-pad"
+              editable={!isLoggedIn}
             />
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Phone Number</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, isLoggedIn && styles.inputDisabled]}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               placeholder="Enter phone number"
               autoCapitalize="none"
               keyboardType="phone-pad"
+              editable={!isLoggedIn}
             />
           </View>
 
@@ -163,9 +190,10 @@ export default function LoginScreen() {
               styles.button,
               styles.loginButton,
               pressed && styles.buttonPressed,
+              isLoggedIn && styles.buttonDisabled,
             ]}
             onPress={handleSendOtp}
-            disabled={loading}
+            disabled={loading || isLoggedIn}
           >
             {loading ? (
               <ActivityIndicator color="white" />
@@ -177,13 +205,14 @@ export default function LoginScreen() {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>OTP Code</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, isLoggedIn && styles.inputDisabled]}
               value={otpCode}
               onChangeText={setOtpCode}
               placeholder="Enter OTP code"
               autoCapitalize="none"
               keyboardType="number-pad"
               maxLength={6}
+              editable={!isLoggedIn}
             />
           </View>
 
@@ -192,9 +221,10 @@ export default function LoginScreen() {
               styles.button,
               styles.sendButton,
               pressed && styles.buttonPressed,
+              isLoggedIn && styles.buttonDisabled,
             ]}
             onPress={handleLogin}
-            disabled={loading}
+            disabled={loading || isLoggedIn}
           >
             {loading ? (
               <ActivityIndicator color="white" />
@@ -202,6 +232,19 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Login</Text>
             )}
           </Pressable>
+
+          {isLoggedIn && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                styles.logoutButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={handleLogout}
+            >
+              <Text style={styles.buttonText}>Logout</Text>
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -260,6 +303,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: "#f9f9f9",
   },
+  inputDisabled: {
+    backgroundColor: "#e5e5e5",
+    color: "#999",
+  },
   error: {
     color: "red",
     marginBottom: 16,
@@ -279,8 +326,15 @@ const styles = StyleSheet.create({
   loginButton: {
     backgroundColor: "#34C759",
   },
+  logoutButton: {
+    backgroundColor: "#FF3B30",
+  },
   buttonPressed: {
     opacity: 0.8,
+  },
+  buttonDisabled: {
+    backgroundColor: "#ccc",
+    opacity: 0.6,
   },
   buttonText: {
     color: "white",

@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { generateTickets, createBatch, getOpenDraw } from "../../services/api";
+import { generateTickets, createBatch, getOpenDraw, getCurrentWeights } from "../../services/api";
 
 type Ticket = {
   ticketIndex: number;
@@ -37,11 +37,45 @@ export default function GenerateTicketsScreen() {
   const [count, setCount] = useState("10");
   const [maxCommon, setMaxCommon] = useState("3");
   const [seed, setSeed] = useState("");
-  const [clusterTarget, setClusterTarget] = useState("2");
+  const [clusterTarget, setClusterTarget] = useState("-");
+  const [showClusterDropdown, setShowClusterDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [batch, setBatch] = useState<GeneratedBatch | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [clusterDescriptions, setClusterDescriptions] = useState<Record<string, string>>({
+    "-": "No ML cluster. Using calculated weights",
+    "1": "Lowest grouping - tickets are more spread out across number ranges",
+    "2": "Low grouping - balanced spread with moderate clustering",
+    "3": "High grouping - tickets tend to cluster together in similar ranges",
+    "4": "Highest grouping - tickets are heavily clustered in similar number ranges",
+  });
+
+  useEffect(() => {
+    fetchClusterDescriptions();
+  }, []);
+
+  async function fetchClusterDescriptions() {
+    try {
+      const weights = await getCurrentWeights();
+      if (weights && weights.weights_json) {
+        const weightsData = JSON.parse(weights.weights_json);
+        if (weightsData.clustering && weightsData.clustering.clusters) {
+          const descriptions: Record<string, string> = {
+            "-": "No ML cluster. Using calculated weights",
+          };
+          for (const [key, value] of Object.entries(weightsData.clustering.clusters)) {
+            const clusterNum = key.replace("cluster_", "");
+            descriptions[clusterNum] = (value as any).description || "";
+          }
+          setClusterDescriptions(descriptions);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching cluster descriptions:", err);
+      // Keep default descriptions on error
+    }
+  }
 
   async function handleGenerate() {
     const ticketCount = parseInt(count, 10);
@@ -195,15 +229,57 @@ export default function GenerateTicketsScreen() {
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Cluster Target (1-4, Optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={clusterTarget}
-              onChangeText={setClusterTarget}
-              placeholder="1, 2, 3, or 4"
-              keyboardType="number-pad"
-              maxLength={1}
-            />
+            <Pressable
+              style={styles.dropdown}
+              onPress={() => setShowClusterDropdown(true)}
+            >
+              <Text style={styles.dropdownText}>
+                {clusterTarget || "Select cluster"}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </Pressable>
+            {clusterTarget && (
+              <Text style={styles.description}>{clusterDescriptions[clusterTarget]}</Text>
+            )}
           </View>
+
+          <Modal
+            visible={showClusterDropdown}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowClusterDropdown(false)}
+          >
+            <Pressable
+              style={styles.modalOverlay}
+              onPress={() => setShowClusterDropdown(false)}
+            >
+              <View style={styles.dropdownModal} onStartShouldSetResponder={() => true}>
+                <Text style={styles.dropdownTitle}>Select Cluster</Text>
+                {["-", "1", "2", "3", "4"].map((option) => (
+                  <Pressable
+                    key={option}
+                    style={[
+                      styles.dropdownOption,
+                      clusterTarget === option && styles.dropdownOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setClusterTarget(option);
+                      setShowClusterDropdown(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownOptionText,
+                        clusterTarget === option && styles.dropdownOptionTextSelected,
+                      ]}
+                    >
+                      Cluster {option}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Modal>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -313,6 +389,66 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     backgroundColor: "#f9f9f9",
+  },
+  dropdown: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: "#f9f9f9",
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  dropdownArrow: {
+    fontSize: 16,
+    color: "#666",
+  },
+  description: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 8,
+    fontStyle: "italic",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  dropdownModal: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    width: "100%",
+    maxWidth: 300,
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  dropdownOption: {
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: "#f9f9f9",
+  },
+  dropdownOptionSelected: {
+    backgroundColor: "#007AFF",
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  dropdownOptionTextSelected: {
+    color: "#fff",
   },
   error: {
     color: "red",

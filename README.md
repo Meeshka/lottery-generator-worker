@@ -679,6 +679,7 @@ src/
 ├── types.ts               # TypeScript type definitions
 ├── routes/                # HTTP route handlers
 │   ├── admin.ts          # Admin-only endpoints
+│   ├── auth.ts           # Authentication endpoints
 │   ├── batches.ts        # Public batch endpoints
 │   ├── health.ts         # Health check
 │   └── stats.ts          # Statistics endpoints
@@ -722,7 +723,8 @@ py-engine/                # Python Worker engine
 mobile/                   # Expo React Native mobile app
 ├── app/                  # App screens and navigation
 │   ├── (tabs)/          # Tab-based navigation
-│   │   ├── index.tsx    # Home screen
+│   │   ├── info.tsx     # Info/home screen
+│   │   ├── login.tsx    # Lotto OTP login screen
 │   │   ├── generate.tsx # Generate tickets screen
 │   │   ├── batches.tsx  # Batches list screen
 │   │   └── explore.tsx  # Explore screen
