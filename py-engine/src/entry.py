@@ -37,11 +37,13 @@ class Default(WorkerEntrypoint):
                     weights_path = f.name
 
                 try:
+                    print(f"[DEBUG] entry.py: Calling recalculate_weights")
                     weights_data = recalculate_weights(
                         history_path=history_path,
                         weights_path=weights_path,
                     )
-                    
+                    print(f"[DEBUG] entry.py: recalculate_weights returned")
+
                     return Response(
                         json.dumps({'ok': True, 'weights': weights_data}),
                         headers={'Content-Type': 'application/json'},

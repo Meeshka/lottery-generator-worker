@@ -156,14 +156,18 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
     
     if len(processed_draws) < 4:
         return {"error": "Insufficient valid draws for clustering"}
-    
+
+    print(f"[DEBUG] weights.py: Starting clustering with {len(processed_draws)} draws")
+
     # Find optimal number of clusters using silhouette analysis
+    print(f"[DEBUG] weights.py: Starting silhouette analysis")
     optimal_result = draw_clustering.find_optimal_clusters(
         processed_draws,
         segment_weights=seg_weights,
         max_clusters=5,
         min_clusters=2
     )
+    print(f"[DEBUG] weights.py: Silhouette analysis completed")
     
     if "error" in optimal_result:
         # Fallback to fixed 4 clusters if silhouette analysis fails
