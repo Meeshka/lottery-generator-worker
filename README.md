@@ -1,4 +1,4 @@
-# lottery-generator-worker
+# Lottery-generator-worker
 
 Cloudflare Worker API for storing generated lottery ticket batches, exposing read endpoints for the latest draw and weights, and importing batch result checks into a D1 database. Includes a Python bridge CLI for syncing data, generating tickets, and checking results.
 
