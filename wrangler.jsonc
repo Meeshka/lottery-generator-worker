@@ -3,9 +3,14 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-04-08",
   "vars": {
-    "PYTHON_WORKER_URL": "https://lottery-generator-python-engine.ushakov-ma.workers.dev",
     "ADMIN_KEY": "tT79iue3OJ"
   },
+  "services": [
+    {
+      "binding": "PY_ENGINE",
+      "service": "lottery-generator-python-engine"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

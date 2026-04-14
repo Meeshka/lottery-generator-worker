@@ -93,3 +93,9 @@ export interface DrawInput {
   rawJson: string | null;
   paisId: number | null;
 }
+
+export interface Env {
+  DB: D1Database;
+  ADMIN_KEY: string;
+  PY_ENGINE: Fetcher;
+}

@@ -115,15 +115,16 @@ export default {
           `)
           .all();
 
-        // Call Python Worker to recalculate weights with draw history
-        const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
-        const pythonResponse = await fetch(`${pythonWorkerUrl}/recalculate-weights`, {
+        // Call Python Worker to recalculate weights with draw history via service binding
+        const pythonRequest = new Request("https://py-engine/recalculate-weights", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ draws: draws.results || draws }),
         });
+
+        const pythonResponse = await env.PY_ENGINE.fetch(pythonRequest);
 
         if (!pythonResponse.ok) {
           const errorText = await pythonResponse.text();
@@ -315,11 +316,10 @@ export default {
     }
 
     if (url.pathname === "/tickets/generate" && request.method === "POST") {
-      const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
-      
       try {
         const body = await request.text();
-        const response = await fetch(`${pythonWorkerUrl}/`, {
+
+        const pythonRequest = new Request("https://py-engine/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -327,7 +327,9 @@ export default {
           body,
         });
 
+        const response = await env.PY_ENGINE.fetch(pythonRequest);
         const responseText = await response.text();
+
         return new Response(responseText, {
           status: response.status,
           headers: {
