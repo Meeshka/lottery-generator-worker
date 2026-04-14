@@ -40,25 +40,10 @@ class Default(WorkerEntrypoint):
 
                 try:
                     import json
-                    import urllib.request
-                    import urllib.error
 
-                    # Fetch draws from main Worker API
-                    main_worker_url = 'https://lottery-generator-worker.ushakov-ma.workers.dev'
-                    print(f"[DEBUG] entry.py: Fetching draws from main Worker: {main_worker_url}/draws/all")
-
-                    req = urllib.request.Request(
-                        f'{main_worker_url}/draws/all',
-                        headers={'User-Agent': 'python-worker/1.0'}
-                    )
-
-                    with urllib.request.urlopen(req) as response:
-                        if response.status != 200:
-                            raise Exception(f"Failed to fetch draws: HTTP {response.status}")
-                        draws_data = json.loads(response.read().decode('utf-8'))
-
-                    draws = draws_data if isinstance(draws_data, list) else draws_data.get('results', [])
-                    print(f"[DEBUG] entry.py: Fetched {len(draws)} draws from main Worker")
+                    body = await request.json()
+                    draws = body.get('draws', [])
+                    print(f"[DEBUG] entry.py: Received {len(draws)} draws from main Worker")
 
                     # Write draws to history file
                     with open(history_path, 'w') as f:

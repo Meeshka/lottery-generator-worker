@@ -106,14 +106,23 @@ export default {
 
     if (url.pathname === "/admin/recalculate-weights" && request.method === "POST") {
       try {
-        // Call Python Worker to recalculate weights (Python Worker will fetch draws from main Worker)
+        // Fetch all draws from database
+        const draws = await env.DB
+          .prepare(`
+            SELECT draw_id, draw_date, numbers_json, strong_number, raw_json
+            FROM draws
+            ORDER BY draw_date ASC, draw_id ASC
+          `)
+          .all();
+
+        // Call Python Worker to recalculate weights with draw history
         const pythonWorkerUrl = env.PYTHON_WORKER_URL || "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
         const pythonResponse = await fetch(`${pythonWorkerUrl}/recalculate-weights`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ draws: draws.results || draws }),
         });
 
         if (!pythonResponse.ok) {
