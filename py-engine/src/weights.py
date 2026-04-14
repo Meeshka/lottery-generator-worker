@@ -6,10 +6,14 @@ from typing import Any, Dict, List, Tuple
 
 # Import clustering functionality
 try:
-    import draw_clustering
+    from . import draw_clustering
     CLUSTERING_AVAILABLE = True
 except ImportError:
-    CLUSTERING_AVAILABLE = False
+    try:
+        import draw_clustering
+        CLUSTERING_AVAILABLE = True
+    except ImportError:
+        CLUSTERING_AVAILABLE = False
 
 # Сегменты как у тебя: 1–9, 10–19, 20–29, 30–37 (включительно)
 SEG_SIZES = [9, 10, 10, 8]
@@ -136,6 +140,7 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
     """
     Compute clustering statistics for draw history.
     Returns cluster centroids, sizes, and distribution patterns.
+    Uses silhouette analysis to determine optimal number of clusters.
     """
     if not CLUSTERING_AVAILABLE or len(draws) < 4:
         return {"error": "Insufficient data or clustering module not available"}
@@ -152,12 +157,23 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
     if len(processed_draws) < 4:
         return {"error": "Insufficient valid draws for clustering"}
     
-    # Run weighted k-means clustering
-    result = draw_clustering.weighted_kmeans_clustering(
+    # Find optimal number of clusters using silhouette analysis
+    optimal_result = draw_clustering.find_optimal_clusters(
         processed_draws,
         segment_weights=seg_weights,
-        n_clusters=4
+        max_clusters=8,
+        min_clusters=2
     )
+    
+    if "error" in optimal_result:
+        # Fallback to fixed 4 clusters if silhouette analysis fails
+        result = draw_clustering.weighted_kmeans_clustering(
+            processed_draws,
+            segment_weights=seg_weights,
+            n_clusters=4
+        )
+    else:
+        result = optimal_result["clustering_result"]
     
     if "error" in result:
         return result
@@ -185,7 +201,7 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
             "size": len(cluster_draws),
             "percentage": round(len(cluster_draws) / total_draws * 100, 1) if total_draws > 0 else 0,
             "dominant_patterns": [{"pattern": eval(p[0]), "count": p[1]} for p in sorted_patterns[:3]],
-            "description": _get_cluster_description(i + 1)
+            "description": _get_cluster_description(i + 1, centroid)
         }
     
     return {
@@ -193,19 +209,80 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
         "method": result.get("method", "weighted_kmeans"),
         "segment_weights_used": seg_weights,
         "clusters": clusters_data,
-        "recommendations": _generate_recommendations(clusters_data)
+        "recommendations": _generate_recommendations(clusters_data),
+        "optimal_n_clusters": optimal_result.get("optimal_n_clusters", result["n_clusters"]),
+        "silhouette_score": optimal_result.get("optimal_score", 0.0)
     }
 
 
-def _get_cluster_description(cluster_id: int) -> str:
-    """Get human-readable description for each cluster."""
-    descriptions = {
-        1: "S3-heavy (20-29 range favored) - middle-high bias",
-        2: "Balanced with S2 preference (10-19 range) - most common",
-        3: "Low+S3 mix (1-9 and 20-29) - small and middle combination",
-        4: "High-heavy (30-37 range favored) - rare, high-risk pattern"
-    }
-    return descriptions.get(cluster_id, "Unknown cluster")
+def _get_cluster_description(cluster_id: int, centroid: Tuple[float, float, float, float] = None) -> str:
+    """Get human-readable description for each cluster based on centroid data."""
+    if centroid is None:
+        return "Unknown cluster"
+    
+    # centroid is (a,b,c,d) where:
+    # a = avg count in S1 (1-9)
+    # b = avg count in S2 (10-19)
+    # c = avg count in S3 (20-29)
+    # d = avg count in S4 (30-37)
+    
+    a, b, c, d = centroid
+    
+    # Find dominant segments (above average of 1.5 since we have 6 picks across 4 segments)
+    avg_per_segment = 6.0 / 4.0  # 1.5
+    
+    dominant_segments = []
+    if a > avg_per_segment + 0.3:
+        dominant_segments.append("S1 (1-9)")
+    if b > avg_per_segment + 0.3:
+        dominant_segments.append("S2 (10-19)")
+    if c > avg_per_segment + 0.3:
+        dominant_segments.append("S3 (20-29)")
+    if d > avg_per_segment + 0.3:
+        dominant_segments.append("S4 (30-37)")
+    
+    # Find weak segments (below average)
+    weak_segments = []
+    if a < avg_per_segment - 0.3:
+        weak_segments.append("S1 (1-9)")
+    if b < avg_per_segment - 0.3:
+        weak_segments.append("S2 (10-19)")
+    if c < avg_per_segment - 0.3:
+        weak_segments.append("S3 (20-29)")
+    if d < avg_per_segment - 0.3:
+        weak_segments.append("S4 (30-37)")
+    
+    # Build description
+    if not dominant_segments and not weak_segments:
+        return f"Balanced distribution (avg: {a:.1f}, {b:.1f}, {c:.1f}, {d:.1f})"
+    
+    description_parts = []
+    
+    if dominant_segments:
+        if len(dominant_segments) == 1:
+            description_parts.append(f"{dominant_segments[0]}-heavy")
+        else:
+            description_parts.append(f"{', '.join(dominant_segments)}-biased")
+    
+    if weak_segments:
+        if len(weak_segments) == 1:
+            description_parts.append(f"low {weak_segments[0]}")
+        else:
+            description_parts.append(f"low {', '.join(weak_segments)}")
+    
+    base_desc = " + ".join(description_parts)
+    
+    # Add risk assessment based on distribution
+    # High variance in distribution = higher risk/unusual pattern
+    variance = sum((x - avg_per_segment) ** 2 for x in [a, b, c, d]) / 4
+    if variance > 0.5:
+        risk_level = "rare, high-risk pattern"
+    elif variance > 0.2:
+        risk_level = "unusual pattern"
+    else:
+        risk_level = "common pattern"
+    
+    return f"{base_desc} - {risk_level} (avg: {a:.1f}, {b:.1f}, {c:.1f}, {d:.1f})"
 
 
 def _generate_recommendations(clusters_data: Dict[str, Any]) -> Dict[str, Any]:

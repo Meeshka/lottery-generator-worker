@@ -299,6 +299,140 @@ def analyze_cluster_patterns(result: Dict[str, Any]) -> Dict[str, Any]:
     return insights
 
 
+def calculate_silhouette_score(
+    vectors: np.ndarray,
+    labels: np.ndarray,
+    weights: np.ndarray = None
+) -> float:
+    """
+    Calculate silhouette score for clustering evaluation.
+    Returns average silhouette score (range: -1 to 1, higher is better).
+    """
+    if weights is None:
+        weights = np.ones(4)
+    
+    n_samples = len(vectors)
+    if n_samples == 0:
+        return 0.0
+    
+    silhouette_scores = []
+    
+    def weighted_distance(a, b):
+        diff = (a - b) * weights
+        return np.sqrt(np.sum(diff ** 2))
+    
+    for i in range(n_samples):
+        # Get cluster for point i
+        cluster_i = labels[i]
+        points_in_cluster_i = np.where(labels == cluster_i)[0]
+        
+        if len(points_in_cluster_i) <= 1:
+            silhouette_scores.append(0.0)
+            continue
+        
+        # Calculate a: average distance to other points in same cluster
+        distances_same = []
+        for j in points_in_cluster_i:
+            if i != j:
+                distances_same.append(weighted_distance(vectors[i], vectors[j]))
+        
+        a = np.mean(distances_same) if distances_same else 0.0
+        
+        # Calculate b: minimum average distance to points in other clusters
+        distances_other = []
+        unique_clusters = np.unique(labels)
+        
+        for cluster_j in unique_clusters:
+            if cluster_j == cluster_i:
+                continue
+            
+            points_in_cluster_j = np.where(labels == cluster_j)[0]
+            if len(points_in_cluster_j) == 0:
+                continue
+            
+            cluster_distances = []
+            for j in points_in_cluster_j:
+                cluster_distances.append(weighted_distance(vectors[i], vectors[j]))
+            
+            if cluster_distances:
+                distances_other.append(np.mean(cluster_distances))
+        
+        b = min(distances_other) if distances_other else 0.0
+        
+        # Silhouette score for this point
+        if a == 0 and b == 0:
+            silhouette_scores.append(0.0)
+        else:
+            silhouette_scores.append((b - a) / max(a, b))
+    
+    return np.mean(silhouette_scores) if silhouette_scores else 0.0
+
+
+def find_optimal_clusters(
+    draws: List[Dict[str, Any]],
+    segment_weights: List[float] = None,
+    max_clusters: int = 8,
+    min_clusters: int = 2
+) -> Dict[str, Any]:
+    """
+    Find optimal number of clusters using silhouette analysis.
+    Tests cluster counts from min_clusters to max_clusters and returns
+    the one with the highest silhouette score.
+    """
+    if not draws:
+        return {"error": "No draws to analyze"}
+    
+    vectors = np.array([d["distribution"] for d in draws], dtype=float)
+    weights = np.array(segment_weights) if segment_weights else np.ones(4)
+    n_samples = len(vectors)
+    
+    # Adjust max_clusters based on sample size
+    max_clusters = min(max_clusters, n_samples - 1)
+    min_clusters = min(min_clusters, max_clusters)
+    
+    if max_clusters < 2:
+        return {"error": "Insufficient samples for clustering", "optimal_n_clusters": 1}
+    
+    silhouette_scores = []
+    cluster_results = {}
+    
+    for n_clusters in range(min_clusters, max_clusters + 1):
+        # Run weighted k-means
+        result = weighted_kmeans_clustering(
+            draws,
+            segment_weights=segment_weights,
+            n_clusters=n_clusters
+        )
+        
+        if "error" in result:
+            continue
+        
+        # Calculate labels from result
+        labels = np.zeros(n_samples, dtype=int)
+        for cluster_id, cluster_draws in result["clusters"].items():
+            for draw in cluster_draws:
+                draw_idx = next(i for i, d in enumerate(draws) if d["id"] == draw["id"])
+                labels[draw_idx] = cluster_id
+        
+        # Calculate silhouette score
+        score = calculate_silhouette_score(vectors, labels, weights)
+        silhouette_scores.append((n_clusters, score))
+        cluster_results[n_clusters] = result
+    
+    if not silhouette_scores:
+        return {"error": "Failed to cluster with any n_clusters"}
+    
+    # Find optimal n_clusters (highest silhouette score)
+    optimal_n_clusters, optimal_score = max(silhouette_scores, key=lambda x: x[1])
+    
+    return {
+        "optimal_n_clusters": optimal_n_clusters,
+        "silhouette_scores": silhouette_scores,
+        "optimal_score": optimal_score,
+        "clustering_result": cluster_results.get(optimal_n_clusters)
+    }
+
+
 if __name__ == "__main__":
     # Load and cluster the draw history
     # Get the directory where this script is located
