@@ -14,6 +14,7 @@ import {
   updateDraws,
   validateToken,
   recalculateWeights,
+  importWeights,
 } from "../../services/api";
 import {
   getAccessToken,
@@ -175,12 +176,12 @@ export default function InfoScreen() {
 
     try {
       const result = await recalculateWeights(token);
-      
+
       if (result.ok) {
         const message = result.message || "Weights recalculated successfully";
         setRecalcResult(message);
         Alert.alert("Success", message);
-        
+
         // Refresh latest draw date
         await checkLatestDraw();
       } else {

@@ -47,22 +47,28 @@ export default function GenerateTicketsScreen() {
     "-": "No ML cluster. Using calculated weights",
   });
   const [availableClusters, setAvailableClusters] = useState<string[]>(["-", "1", "2", "3", "4"]);
+  const [descriptionsLoading, setDescriptionsLoading] = useState(true);
 
   useEffect(() => {
     fetchClusterDescriptions();
   }, []);
 
   async function fetchClusterDescriptions() {
+    setDescriptionsLoading(true);
     try {
       const weights = await getCurrentWeights();
+      console.log("Weights response:", weights);
+
       if (weights && weights.weights_json) {
         const weightsData = JSON.parse(weights.weights_json);
+        console.log("Weights data clustering:", weightsData.clustering);
+
         if (weightsData.clustering && weightsData.clustering.clusters) {
           const descriptions: Record<string, string> = {
             "-": "No ML cluster. Using calculated weights",
           };
           const clusterIds: string[] = ["-"];
-          
+
           for (const [key, value] of Object.entries(weightsData.clustering.clusters)) {
             const clusterNum = key.replace("cluster_", "");
             descriptions[clusterNum] = (value as any).description || "";
@@ -70,12 +76,31 @@ export default function GenerateTicketsScreen() {
           }
           setClusterDescriptions(descriptions);
           setAvailableClusters(clusterIds);
+          console.log("Set descriptions:", descriptions);
+        } else {
+          console.log("No clustering data found in weights, using fallback");
+          setClusterDescriptions(getFallbackDescriptions());
         }
+      } else {
+        console.log("No weights or weights_json found, using fallback");
+        setClusterDescriptions(getFallbackDescriptions());
       }
     } catch (err) {
       console.error("Error fetching cluster descriptions:", err);
-      // Keep default descriptions on error
+      setClusterDescriptions(getFallbackDescriptions());
+    } finally {
+      setDescriptionsLoading(false);
     }
+  }
+
+  function getFallbackDescriptions(): Record<string, string> {
+    return {
+      "-": "No ML cluster. Using calculated weights",
+      "1": "S3-heavy (20-29 range favored) - middle-high bias",
+      "2": "Balanced with S2 preference (10-19 range) - most common",
+      "3": "Low+S3 mix (1-9 and 20-29) - small and middle combination",
+      "4": "High-heavy (30-37 range favored) - rare, high-risk pattern",
+    };
   }
 
   async function handleGenerate() {
