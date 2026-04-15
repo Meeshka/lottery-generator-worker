@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,45 +14,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getBatches, applyBatchToLotto } from "../../services/api";
 import { getAccessToken } from "../../services/secureStorage";
 
-function getStatusLabel(status: string) {
-  return status.replaceAll("_", " ");
-}
-
-function getStatusStyle(status: string) {
-  switch (status.toLowerCase()) {
-    case "checked":
-    case "done":
-    case "completed":
-      return styles.statusGood;
-    case "pending":
-    case "new":
-    case "created":
-    case "generated":
-    case "submitted":
-      return styles.statusPending;
-    case "failed":
-    case "error":
-      return styles.statusBad;
-    default:
-      return styles.statusNeutral;
-  }
-}
-
-export default function BatchesScreen() {
+export default function BatchesByStatusScreen() {
   const router = useRouter();
+  const { status } = useLocalSearchParams<{ status: string }>();
 
   const [loading, setLoading] = useState(true);
   const [batches, setBatches] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [selectedTab, setSelectedTab] = useState<string>("all");
   const [applyingBatchId, setApplyingBatchId] = useState<number | null>(null);
 
   async function loadBatches() {
     try {
       setError("");
       const data = await getBatches(100);
-      setBatches(data.batches || []);
+      const filteredBatches = (data.batches || []).filter(
+        (batch: any) => (batch.status ?? "").toLowerCase() === status.toLowerCase()
+      );
+      setBatches(filteredBatches);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -64,7 +43,7 @@ export default function BatchesScreen() {
 
   useEffect(() => {
     loadBatches();
-  }, []);
+  }, [status]);
 
   function onRefresh() {
     setRefreshing(true);
@@ -116,44 +95,29 @@ export default function BatchesScreen() {
     );
   }
 
-  const groupedBatches = useMemo(() => {
-    const groups: Record<string, any[]> = {};
-    for (const batch of batches) {
-      const status = batch.status || "unknown";
-      if (!groups[status]) {
-        groups[status] = [];
-      }
-      groups[status].push(batch);
-    }
-    return groups;
-  }, [batches]);
+  function getStatusLabel(status: string) {
+    return status.replaceAll("_", " ");
+  }
 
-  const allStatuses = useMemo(() => {
-    const priority: Record<string, number> = {
-      pending: 1,
-      new: 2,
-      created: 3,
-      generated: 4,
-      submitted: 5,
-      checked: 6,
-      done: 7,
-      completed: 8,
-      failed: 9,
-      error: 10,
-    };
-    return Object.keys(groupedBatches).sort((a, b) => {
-      const aPriority = priority[a.toLowerCase()] ?? 999;
-      const bPriority = priority[b.toLowerCase()] ?? 999;
-      return aPriority - bPriority;
-    });
-  }, [groupedBatches]);
-
-  const filteredBatches = useMemo(() => {
-    if (selectedTab === "all") {
-      return batches;
+  function getStatusStyle(status: string) {
+    switch (status.toLowerCase()) {
+      case "checked":
+      case "done":
+      case "completed":
+        return styles.statusGood;
+      case "pending":
+      case "new":
+      case "created":
+      case "generated":
+      case "submitted":
+        return styles.statusPending;
+      case "failed":
+      case "error":
+        return styles.statusBad;
+      default:
+        return styles.statusNeutral;
     }
-    return batches.filter((batch) => (batch.status || "").toLowerCase() === selectedTab.toLowerCase());
-  }, [batches, selectedTab]);
+  }
 
   if (loading) {
     return (
@@ -173,30 +137,17 @@ export default function BatchesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.tabsContainer}>
-        <Pressable
-          style={[styles.tab, selectedTab === "all" && styles.tabActive]}
-          onPress={() => setSelectedTab("all")}
-        >
-          <Text style={[styles.tabText, selectedTab === "all" && styles.tabTextActive]}>
-            All
-          </Text>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← Back</Text>
         </Pressable>
-        {allStatuses.map((status) => (
-          <Pressable
-            key={status}
-            style={[styles.tab, selectedTab === status && styles.tabActive]}
-            onPress={() => setSelectedTab(status)}
-          >
-            <Text style={[styles.tabText, selectedTab === status && styles.tabTextActive]}>
-              {getStatusLabel(status)}
-            </Text>
-          </Pressable>
-        ))}
+        <View style={[styles.statusBadge, getStatusStyle(status)]}>
+          <Text style={styles.statusText}>{getStatusLabel(status)}</Text>
+        </View>
       </View>
 
       <FlatList
-        data={filteredBatches}
+        data={batches}
         keyExtractor={(item) => String(item.id)}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -213,8 +164,8 @@ export default function BatchesScreen() {
               }
             >
               <Text style={styles.title}>Batch #{item.id}</Text>
-              <Text style={styles.cardText}>Status: {getStatusLabel(item.status ?? "—")}</Text>
-              <Text style={styles.cardText}>Created: {item.createdAt || item.created_at || "—"}</Text>
+              <Text>Status: {item.status ?? "—"}</Text>
+              <Text>Created: {item.createdAt || item.created_at || "—"}</Text>
               <Text style={styles.ticketCountText}>
                 Tickets: {item.ticketCount || item.ticket_count || "?"}
               </Text>
@@ -240,7 +191,7 @@ export default function BatchesScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.centerBlock}>
-            <Text>No batches found</Text>
+            <Text>No batches with status "{getStatusLabel(status)}"</Text>
           </View>
         }
       />
@@ -262,56 +213,19 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
   },
-  tabsContainer: {
+  header: {
     flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
-    gap: 8,
+    gap: 12,
   },
-  tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#e8e8e8",
+  backButton: {
+    padding: 8,
   },
-  tabActive: {
-    backgroundColor: "#007AFF",
-  },
-  tabText: {
-    fontSize: 14,
+  backText: {
+    fontSize: 16,
     fontWeight: "600",
-    color: "#333",
-  },
-  tabTextActive: {
-    color: "#fff",
-  },
-  card: {
-    flexDirection: "row",
-    padding: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    backgroundColor: "#f3f3f3",
-    alignItems: "center",
-  },
-  cardContent: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  cardText: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  statusSection: {
-    marginBottom: 16,
-  },
-  statusHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
+    color: "#007AFF",
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -335,27 +249,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
   },
-  countText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
-  },
-  viewMoreButton: {
-    padding: 12,
+  card: {
+    flexDirection: "row",
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: "#f3f3f3",
     alignItems: "center",
-    backgroundColor: "#e8e8e8",
-    borderRadius: 8,
   },
-  viewMoreText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#007AFF",
+  cardContent: {
+    flex: 1,
   },
-  ticketCountText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#007AFF",
-    marginTop: 4,
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   applyButton: {
     padding: 10,
@@ -375,8 +283,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  ticketCountText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#007AFF",
+    marginTop: 4,
+  },
   error: {
     color: "red",
   },
 });
-

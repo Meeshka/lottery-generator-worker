@@ -65,6 +65,11 @@ interface ValidateOtpRequestBody {
   otpCode: string;
 }
 
+interface ApplyToLottoRequestBody {
+  batchId: number;
+  accessToken: string;
+}
+
 function isAdmin(request: Request, env: Env): boolean {
   const key = request.headers.get("x-admin-key");
   return !!key && key === env.ADMIN_KEY;
@@ -413,6 +418,150 @@ export async function handleAdminRoute(
       if (error instanceof LottoAuthError) {
         return badRequestResponse(error.message);
       }
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/batches/apply-to-lotto" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<ApplyToLottoRequestBody>(request);
+
+      const batchId = body.batchId;
+      const accessToken = body.accessToken;
+
+      // Get batch with tickets
+      const batchData = await getBatchWithTicketsById(env.DB, batchId);
+      if (!batchData || !batchData.batch || batchData.batch.status !== "generated") {
+        return badRequestResponse("Batch not found or not in generated status");
+      }
+
+      const tickets = batchData.tickets;
+      if (!tickets || tickets.length === 0) {
+        return badRequestResponse("Batch has no tickets");
+      }
+
+      // Step 1: Calculate price
+      const calculateResponse = await fetch("https://api.lottosheli.com/api/v1/client/tickets/calculate", {
+        method: "POST",
+        headers: {
+          "Authorization": `otp ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          drawType: "DRAW_LOTTO",
+          ticketType: "REGULAR",
+          tables: tickets.length,
+          hasExtra: false,
+          numberOfDraws: 1,
+        }),
+      });
+
+      if (!calculateResponse.ok) {
+        const errorText = await calculateResponse.text();
+        return badRequestResponse(`Failed to calculate price: ${errorText}`);
+      }
+
+      const calculateData = await calculateResponse.json();
+      const totalPrice = calculateData.total;
+
+      // Step 2: Check duplicate combinations
+      const tablesNumbers = tickets.map((ticket) => {
+        let numbers: number[];
+        try {
+          numbers = typeof ticket.numbersJson === "string"
+            ? JSON.parse(ticket.numbersJson)
+            : ticket.numbersJson || [];
+        } catch {
+          numbers = [];
+        }
+        return {
+          regularNumbers: numbers,
+          strongNumbers: [ticket.strongNumber || 0],
+        };
+      });
+
+      const checkDuplicateResponse = await fetch("https://api.lottosheli.com/api/v1/client/user/tickets/check-duplicate-combination", {
+        method: "POST",
+        headers: {
+          "Authorization": `otp ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tickets: [
+            {
+              numberOfDraws: 1,
+              autoRenewal: false,
+              drawType: "DRAW_LOTTO",
+              isExtra: false,
+              tablesNumbers,
+              ticketType: "REGULAR",
+            },
+          ],
+        }),
+      });
+
+      if (!checkDuplicateResponse.ok) {
+        const errorText = await checkDuplicateResponse.text();
+        return badRequestResponse(`Failed to check duplicate: ${errorText}`);
+      }
+
+      const checkDuplicateData = await checkDuplicateResponse.json();
+      if (checkDuplicateData.isDuplicateCombination === true) {
+        return badRequestResponse("Duplicate combination detected");
+      }
+
+      // Step 3: Pay for tickets
+      const payResponse = await fetch("https://api.lottosheli.com/api/v1/client/payments", {
+        method: "POST",
+        headers: {
+          "Authorization": `otp ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          transactionType: "PURCHASE",
+          tickets: [
+            {
+              numberOfDraws: 1,
+              autoRenewal: false,
+              drawType: "DRAW_LOTTO",
+              isExtra: false,
+              tablesNumbers,
+              ticketType: "REGULAR",
+            },
+          ],
+          amountFromCredit: calculateData.commission,
+          amountFromDeposit: 0,
+          clientUrl: "https://lottosheli.co.il",
+          apiUrl: "https://api.lottosheli.com",
+          useSavedCard: true,
+          saveCard: true,
+          uiCustomData: {},
+        }),
+      });
+
+      if (!payResponse.ok) {
+        const errorText = await payResponse.text();
+        return badRequestResponse(`Failed to pay: ${errorText}`);
+      }
+
+      const payData = await payResponse.json();
+      if (!payData.success) {
+        return badRequestResponse("Payment failed");
+      }
+
+      // Step 4: Mark batch as submitted
+      const batch = await markBatchAsSubmitted(env.DB, batchId);
+
+      return jsonResponse({
+        ok: true,
+        batchId,
+        transactionId: payData.transactionId,
+        totalPrice,
+        status: batch?.status,
+      });
+    } catch (error) {
       return badRequestResponse(
         error instanceof Error ? error.message : String(error),
       );

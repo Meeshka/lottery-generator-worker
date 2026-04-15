@@ -189,10 +189,11 @@ Current mobile functionality includes:
 
 - health checks against the Worker
 - Lotto OTP login through Worker proxy routes
-- **Generate tickets** - Ticket generation via the main Worker proxy route (`/tickets/generate`) which forwards to the Python Worker engine. Configurable parameters include count, max common, seed, and cluster target. Generated batches are automatically saved to the database with open draw information from `/draws/open`.
+- **Generate tickets** - Ticket generation via the main Worker proxy route (`/tickets/generate`) which forwards to the Python Worker engine. Configurable parameters include count (dropdown: 2, 4, 6, 8, 10, 12, 14), max common, seed, and cluster target. Generated batches are automatically saved to the database with open draw information from `/draws/open`.
 - **Update draws** - Fetches draws from Lotto Sheli API and imports them to the Worker DB. Shows the count of new draws added and total draws in the database.
 - **Recalculate weights** - Triggers weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. This provides full weight recalculation functionality without requiring the bridge CLI.
-- batch listing
+- **Batches tab** - Displays batches grouped by status with counts. Each status section is pressable and navigates to a filtered view showing only batches with that status. Batches with "generated" status show an "Apply to Lotto" button on the right side of the card.
+- **Apply to Lotto** - For batches with "generated" status, allows applying the batch to Lotto Sheli. This triggers a multi-step flow: calculate price, check duplicate combinations, process payment, and mark the batch as "submitted" on success.
 - batch detail, summary, and result views
 
 ## Python bridge CLI
@@ -815,6 +816,47 @@ Request body:
 
 Response includes both the submission status and sync confirmation result.
 
+#### `POST /admin/batches/apply-to-lotto`
+
+Applies a generated batch to Lotto Sheli by executing a multi-step payment flow.
+
+Request body:
+
+```json
+{
+  "batchId": 123,
+  "accessToken": "lotto-access-token"
+}
+```
+
+Response (success):
+
+```json
+{
+  "ok": true,
+  "batchId": 123,
+  "transactionId": 3955933,
+  "totalPrice": 41.9,
+  "status": "submitted"
+}
+```
+
+This endpoint:
+- Validates the batch exists and has status "generated"
+- Fetches the batch with all its tickets
+- **Step 1**: Calculates the price via Lotto Sheli API (`/api/v1/client/tickets/calculate`)
+- **Step 2**: Checks for duplicate combinations via Lotto Sheli API (`/api/v1/client/user/tickets/check-duplicate-combination`)
+- **Step 3**: Processes payment via Lotto Sheli API (`/api/v1/client/payments`)
+- **Step 4**: Marks the batch as "submitted" on successful payment
+- Returns the transaction ID and total price
+
+The endpoint requires a valid Lotto Sheli access token and will fail if:
+- The batch is not found or not in "generated" status
+- The batch has no tickets
+- Price calculation fails
+- Duplicate combinations are detected
+- Payment fails
+
 ## Project structure
 
 ```
@@ -870,10 +912,12 @@ mobile/                   # Expo React Native mobile app
 │   │   ├── info.tsx     # Info/home screen
 │   │   ├── login.tsx    # Lotto OTP login screen
 │   │   ├── generate.tsx # Generate tickets screen
-│   │   ├── batches.tsx  # Batches list screen
+│   │   ├── batches.tsx  # Batches list screen (grouped by status)
 │   │   └── explore.tsx  # Explore screen
 │   ├── batch/           # Batch detail screens
 │   │   └── [id].tsx     # Batch detail by ID
+│   ├── batches/         # Status-filtered batch views
+│   │   └── [status].tsx # Batches filtered by status
 │   ├── _layout.tsx      # Root layout
 │   └── modal.tsx        # Modal screen
 ├── components/           # Reusable components

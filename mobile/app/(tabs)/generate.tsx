@@ -39,10 +39,14 @@ export default function GenerateTicketsScreen() {
   const [seed, setSeed] = useState("");
   const [clusterTarget, setClusterTarget] = useState("-");
   const [showClusterDropdown, setShowClusterDropdown] = useState(false);
+  const [showCountDropdown, setShowCountDropdown] = useState(false);
+  const [countOptions] = useState(["2", "4", "6", "8", "10", "12", "14"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [batch, setBatch] = useState<GeneratedBatch | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [clusterDescriptions, setClusterDescriptions] = useState<Record<string, string>>({
     "-": "No ML cluster. Using calculated weights",
   });
@@ -141,78 +145,87 @@ export default function GenerateTicketsScreen() {
 
       const tickets = response.tickets || [];
 
-      try {
-        let targetDrawId: string | null = null;
-        let targetPaisId: number | null = null;
-        let targetDrawAt: string | null = null;
-        let targetDrawSnapshotJson: string | null = null;
+      const newBatch: GeneratedBatch = {
+        id: `pending-${Date.now()}`,
+        tickets: tickets,
+        createdAt: new Date().toISOString(),
+        params: {
+          count: ticketCount,
+          maxCommon: maxCommonValue,
+          seed: seed || undefined,
+          clusterTarget: clusterValue,
+        },
+      };
 
-        try {
-          const openDraw = await getOpenDraw();
-          const drawData = openDraw.draw;
-          
-          if (drawData && drawData.LotteryNumber) {
-            targetDrawId = null; // оставить пустым до подтверждения из Lotto Sheli
-            targetPaisId = drawData.LotteryNumber ?? null;
-            targetDrawAt = drawData.nextLottoryDate ?? null;
-            targetDrawSnapshotJson = JSON.stringify(drawData);
-          }
-        } catch (drawErr) {
-          // console.warn("Could not fetch open draw, creating batch without draw info:", drawErr);
-        }
-
-        const batchResponse = await createBatch({
-          targetDrawId,
-          targetPaisId,
-          targetDrawAt,
-          targetDrawSnapshotJson,
-          generatorVersion: "mobile-v1",
-          tickets: tickets.map((t: Ticket) => ({
-            ticketIndex: t.ticketIndex,
-            numbers: t.numbers,
-            strong: t.strong,
-          })),
-        });
-
-        const newBatch: GeneratedBatch = {
-          id: String(batchResponse.batch?.id || batchResponse.batch?.batch_key),
-          tickets: tickets,
-          createdAt: new Date().toISOString(),
-          params: {
-            count: ticketCount,
-            maxCommon: maxCommonValue,
-            seed: seed || undefined,
-            clusterTarget: clusterValue,
-          },
-        };
-
-        setBatch(newBatch);
-        Alert.alert("Success", `Generated and saved ${response.count} tickets as batch #${newBatch.id}`);
-      } catch (batchErr) {
-        const message = batchErr instanceof Error ? batchErr.message : String(batchErr);
-        // console.error("Failed to save batch:", message);
-        
-        const newBatch: GeneratedBatch = {
-          id: `local-${Date.now()}`,
-          tickets: tickets,
-          createdAt: new Date().toISOString(),
-          params: {
-            count: ticketCount,
-            maxCommon: maxCommonValue,
-            seed: seed || undefined,
-            clusterTarget: clusterValue,
-          },
-        };
-
-        setBatch(newBatch);
-        Alert.alert("Partial Success", `Generated ${response.count} tickets (failed to save to database: ${message})`);
-      }
+      setBatch(newBatch);
+      setIsPending(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAccept() {
+    if (!batch) return;
+
+    setSaving(true);
+
+    try {
+      let targetDrawId: string | null = null;
+      let targetPaisId: number | null = null;
+      let targetDrawAt: string | null = null;
+      let targetDrawSnapshotJson: string | null = null;
+
+      try {
+        const openDraw = await getOpenDraw();
+        const drawData = openDraw.draw;
+        
+        if (drawData && drawData.LotteryNumber) {
+          targetDrawId = null;
+          targetPaisId = drawData.LotteryNumber ?? null;
+          targetDrawAt = drawData.nextLottoryDate ?? null;
+          targetDrawSnapshotJson = JSON.stringify(drawData);
+        }
+      } catch (drawErr) {
+        // console.warn("Could not fetch open draw, creating batch without draw info:", drawErr);
+      }
+
+      const batchResponse = await createBatch({
+        targetDrawId,
+        targetPaisId,
+        targetDrawAt,
+        targetDrawSnapshotJson,
+        generatorVersion: "mobile-v1",
+        tickets: batch.tickets.map((t: Ticket) => ({
+          ticketIndex: t.ticketIndex,
+          numbers: t.numbers,
+          strong: t.strong,
+        })),
+      });
+
+      const savedBatch: GeneratedBatch = {
+        id: String(batchResponse.batch?.id || batchResponse.batch?.batch_key),
+        tickets: batch.tickets,
+        createdAt: batch.createdAt,
+        params: batch.params,
+      };
+
+      setBatch(savedBatch);
+      setIsPending(false);
+      Alert.alert("Success", `Saved ${batch.tickets.length} tickets as batch #${savedBatch.id}`);
+    } catch (batchErr) {
+      const message = batchErr instanceof Error ? batchErr.message : String(batchErr);
+      Alert.alert("Error", `Failed to save batch: ${message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancel() {
+    setBatch(null);
+    setIsPending(false);
   }
 
   return (
@@ -226,13 +239,15 @@ export default function GenerateTicketsScreen() {
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Number of Tickets</Text>
-            <TextInput
-              style={styles.input}
-              value={count}
-              onChangeText={setCount}
-              placeholder="10"
-              keyboardType="number-pad"
-            />
+            <Pressable
+              style={styles.dropdown}
+              onPress={() => setShowCountDropdown(true)}
+            >
+              <Text style={styles.dropdownText}>
+                {count}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </Pressable>
           </View>
 
           <View style={styles.inputContainer}>
@@ -313,6 +328,44 @@ export default function GenerateTicketsScreen() {
             </Pressable>
           </Modal>
 
+          <Modal
+            visible={showCountDropdown}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowCountDropdown(false)}
+          >
+            <Pressable
+              style={styles.modalOverlay}
+              onPress={() => setShowCountDropdown(false)}
+            >
+              <View style={styles.dropdownModal} onStartShouldSetResponder={() => true}>
+                <Text style={styles.dropdownTitle}>Select Number of Tickets</Text>
+                {countOptions.map((option) => (
+                  <Pressable
+                    key={option}
+                    style={[
+                      styles.dropdownOption,
+                      count === option && styles.dropdownOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setCount(option);
+                      setShowCountDropdown(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownOptionText,
+                        count === option && styles.dropdownOptionTextSelected,
+                      ]}
+                    >
+                      {option} tickets
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Modal>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
@@ -331,26 +384,51 @@ export default function GenerateTicketsScreen() {
           </Pressable>
 
           {batch && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.batchCard,
-                pressed && styles.batchCardPressed,
-              ]}
-              onPress={() => setShowBatchModal(true)}
-            >
-              <Text style={styles.batchTitle}>Batch #{batch.id.slice(-8)}</Text>
-              <Text style={styles.batchMeta}>
-                {batch.tickets.length} tickets · {new Date(batch.createdAt).toLocaleString()}
-              </Text>
-              <Text style={styles.batchParams}>
-                Count: {batch.params.count} · Max Common: {batch.params.maxCommon}
-                {batch.params.seed && ` · Seed: ${batch.params.seed}`}
-                {batch.params.clusterTarget && ` · Cluster: ${batch.params.clusterTarget}`}
-              </Text>
-              <View style={styles.batchArrow}>
-                <Text style={styles.batchArrowText}>→ View Tickets</Text>
-              </View>
-            </Pressable>
+            <View style={styles.batchCard}>
+              <Pressable onPress={() => setShowBatchModal(true)}>
+                <Text style={styles.batchTitle}>Batch #{batch.id.slice(-8)}</Text>
+                <Text style={styles.batchMeta}>
+                  {batch.tickets.length} tickets · {new Date(batch.createdAt).toLocaleString()}
+                </Text>
+                <Text style={styles.batchParams}>
+                  Count: {batch.params.count} · Max Common: {batch.params.maxCommon}
+                  {batch.params.seed && ` · Seed: ${batch.params.seed}`}
+                  {batch.params.clusterTarget && ` · Cluster: ${batch.params.clusterTarget}`}
+                </Text>
+                <View style={styles.batchArrow}>
+                  <Text style={styles.batchArrowText}>→ View Tickets</Text>
+                </View>
+              </Pressable>
+              {isPending && (
+                <View style={styles.actionButtons}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.acceptButton,
+                      pressed && styles.buttonPressed,
+                      saving && styles.buttonDisabled,
+                    ]}
+                    onPress={handleAccept}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text style={styles.buttonText}>Accept</Text>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cancelButton,
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={handleCancel}
+                    disabled={saving}
+                  >
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           )}
 
           <Modal
@@ -513,6 +591,32 @@ const styles = StyleSheet.create({
   },
   batchCardPressed: {
     opacity: 0.8,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+  },
+  acceptButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    backgroundColor: "#007AFF",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    backgroundColor: "#FF3B30",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   batchTitle: {
     fontSize: 20,
