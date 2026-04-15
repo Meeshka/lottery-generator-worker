@@ -389,14 +389,16 @@ export interface RefreshBatchStatusesResult {
 
 function remoteTablesToTicketInputs(tables: number[][]): TicketInput[] {
   return tables.map((table, index) => {
-    const sorted = [...table].map(Number).sort((a, b) => a - b);
+    const normalized = [...table].map(Number);
 
-    let numbers = sorted;
+    let numbers: number[] = normalized;
     let strong: number | null = null;
 
-    if (sorted.length === 7) {
-      strong = sorted[sorted.length - 1];
-      numbers = sorted.slice(0, 6);
+    if (normalized.length === 7) {
+      numbers = normalized.slice(0, 6).sort((a, b) => a - b);
+      strong = normalized[6];
+    } else {
+      numbers = normalized.slice(0, 6).sort((a, b) => a - b);
     }
 
     return {
