@@ -13,8 +13,7 @@ class Default(WorkerEntrypoint):
         try:
             url = str(request.url)
             print(f"[DEBUG] entry.py: Received request: {request.method} {url}")
-            
-            # Recalculate weights endpoint
+
             if url.endswith('/recalculate-weights'):
                 print(f"[DEBUG] entry.py: Matched /recalculate-weights endpoint")
                 if request.method != 'POST':
@@ -23,7 +22,7 @@ class Default(WorkerEntrypoint):
                         status=405,
                         headers={'Content-Type': 'application/json'},
                     )
-                
+
                 try:
                     from .lotto_update import recalculate_weights
                 except ImportError:
@@ -43,10 +42,8 @@ class Default(WorkerEntrypoint):
                     draws = body.get('draws', [])
                     print(f"[DEBUG] entry.py: Received {len(draws)} draws from main Worker")
 
-                    # Write draws to history file
                     with open(history_path, 'w') as f:
                         for draw in draws:
-                            # Parse numbers_json if it's a string
                             if isinstance(draw.get('numbers_json'), str):
                                 try:
                                     draw['numbers'] = json.loads(draw['numbers_json'])
@@ -55,14 +52,12 @@ class Default(WorkerEntrypoint):
                             else:
                                 draw['numbers'] = draw.get('numbers_json', [])
 
-                            # Use raw_json if available, otherwise construct from fields
                             if draw.get('raw_json'):
                                 if isinstance(draw['raw_json'], str):
                                     f.write(draw['raw_json'] + '\n')
                                 else:
                                     f.write(json.dumps(draw['raw_json']) + '\n')
                             else:
-                                # Construct draw object
                                 draw_obj = {
                                     'id': draw.get('draw_id'),
                                     'endsAt': draw.get('draw_date'),
@@ -83,15 +78,14 @@ class Default(WorkerEntrypoint):
                         json.dumps({'ok': True, 'weights': weights_data}),
                         headers={'Content-Type': 'application/json'},
                     )
-                    
+
                 finally:
                     for path in [history_path, weights_path]:
                         try:
                             os.unlink(path)
                         except:
                             pass
-            
-            # Generate tickets endpoint
+
             if request.method != 'POST':
                 return Response(
                     json.dumps({'ok': False, 'error': 'Method Not Allowed'}),
@@ -106,6 +100,7 @@ class Default(WorkerEntrypoint):
             seed = body.get('seed')
             cluster_target = body.get('clusterTarget')
             weights = body.get('weights')
+            history_tickets = body.get('historyTickets')
 
             if cluster_target is not None:
                 cluster_target = int(cluster_target)
@@ -116,6 +111,7 @@ class Default(WorkerEntrypoint):
                 seed=seed,
                 cluster_target=cluster_target,
                 weights=weights,
+                history_tickets_input=history_tickets,
             )
 
             return Response(
