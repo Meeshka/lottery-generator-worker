@@ -21,24 +21,37 @@ def generate_tickets(
     max_common: int,
     seed: Optional[str] = None,
     cluster_target: Optional[int] = None,
+    weights: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Generate lottery tickets using the lottery_generator module.
-    
+
     Args:
         count: Number of tickets to generate
         max_common: Maximum common numbers with history
         seed: Optional random seed for reproducibility
         cluster_target: Optional cluster target (1-4) for distribution-based generation
-    
+        weights: Optional weights dict to apply directly instead of loading from file
+
     Returns:
         List of ticket dictionaries with ticketIndex, numbers, and strong
     """
-    # Load weights if available
-    try:
-        lg.load_dynamic_weights("weights.json")
-    except Exception:
-        pass  # Weights file might not be available in worker context
+    # Apply weights if provided, otherwise try loading from file
+    if isinstance(weights, dict):
+        if isinstance(weights.get("SEG_WEIGHTS"), list) and len(weights["SEG_WEIGHTS"]) == 4:
+            lg.SEG_WEIGHTS = [float(x) for x in weights["SEG_WEIGHTS"]]
+        if isinstance(weights.get("ALPHA_OVERFLOW"), (int, float)):
+            lg.ALPHA_OVERFLOW = float(weights["ALPHA_OVERFLOW"])
+        if isinstance(weights.get("BETA_ZERO_BY_SEGMENT"), list) and len(weights["BETA_ZERO_BY_SEGMENT"]) == 4:
+            lg.BETA_ZERO_BY_SEGMENT = [float(x) for x in weights["BETA_ZERO_BY_SEGMENT"]]
+        if isinstance(weights.get("clustering"), dict):
+            lg.CLUSTERING_DATA = weights["clustering"]
+        lg.invalidate_allowed_cache()
+    else:
+        try:
+            lg.load_dynamic_weights("weights.json")
+        except Exception:
+            pass  # Weights file might not be available in worker context
     
     # Initialize random with seed if provided
     rng = random.Random(seed) if seed else random.Random()

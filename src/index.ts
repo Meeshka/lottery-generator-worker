@@ -317,14 +317,29 @@ export default {
 
     if (url.pathname === "/tickets/generate" && request.method === "POST") {
       try {
-        const body = await request.text();
+        const incoming = await request.json();
+
+        const currentWeights = await env.DB
+          .prepare(`
+            SELECT weights_json
+            FROM weights
+            WHERE is_current = 1
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          `)
+          .first<{ weights_json: string }>();
+
+        const body = {
+          ...incoming,
+          weights: currentWeights?.weights_json
+            ? JSON.parse(currentWeights.weights_json)
+            : null,
+        };
 
         const pythonRequest = new Request("https://py-engine/", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
 
         const response = await env.PY_ENGINE.fetch(pythonRequest);
@@ -332,9 +347,7 @@ export default {
 
         return new Response(responseText, {
           status: response.status,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
         return jsonResponse({
