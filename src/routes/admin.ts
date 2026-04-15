@@ -435,12 +435,12 @@ export async function handleAdminRoute(
 
       const batchId = body.batchId;
       const accessToken = body.accessToken;
-      console.log("[apply-to-lotto] batchId:", batchId);
+      /*console.log("[apply-to-lotto] batchId:", batchId);
       console.log("[apply-to-lotto] accessToken present:", !!accessToken);
       console.log(
     "[apply-to-lotto] accessToken tail:",
           accessToken ? accessToken.slice(-8) : null
-      );
+      );*/
 
       // Get batch with tickets
       const batchData = await getBatchWithTicketsById(env.DB, batchId);
@@ -453,9 +453,9 @@ export async function handleAdminRoute(
         return badRequestResponse("Batch has no tickets");
       }
 
-      console.log("[apply-to-lotto] batch status:", batchData.batch.status);
+      /*console.log("[apply-to-lotto] batch status:", batchData.batch.status);
       console.log("[apply-to-lotto] tickets count:", tickets.length);
-      console.log("[apply-to-lotto] raw tickets:", JSON.stringify(tickets));
+      console.log("[apply-to-lotto] raw tickets:", JSON.stringify(tickets));*/
 
       // Step 1: Calculate price
       const calculatePayload = {
@@ -466,7 +466,7 @@ export async function handleAdminRoute(
         numberOfDraws: 1,
       };
 
-      console.log("[apply-to-lotto] calculate payload:", JSON.stringify(calculatePayload));
+      //console.log("[apply-to-lotto] calculate payload:", JSON.stringify(calculatePayload));
 
       const calculateResponse = await fetch("https://api.lottosheli.com/api/v1/client/tickets/calculate", {
         method: "POST",
@@ -478,8 +478,8 @@ export async function handleAdminRoute(
       });
 
       const calculateText = await calculateResponse.text();
-      console.log("[apply-to-lotto] calculate status:", calculateResponse.status);
-      console.log("[apply-to-lotto] calculate response:", calculateText);
+      /*console.log("[apply-to-lotto] calculate status:", calculateResponse.status);
+      console.log("[apply-to-lotto] calculate response:", calculateText);*/
 
       if (!calculateResponse.ok) {
         return badRequestResponse(`Failed to calculate price: ${calculateText}`);
@@ -503,7 +503,7 @@ export async function handleAdminRoute(
           strongNumbers: [ticket.strong_number || 0],
         };
       });
-      console.log("[apply-to-lotto] tablesNumbers:", JSON.stringify(tablesNumbers));
+      //console.log("[apply-to-lotto] tablesNumbers:", JSON.stringify(tablesNumbers));
 
       const duplicatePayload = {
         tickets: [
@@ -518,7 +518,7 @@ export async function handleAdminRoute(
         ],
       };
 
-      console.log("[apply-to-lotto] duplicate payload:", JSON.stringify(duplicatePayload));
+      //console.log("[apply-to-lotto] duplicate payload:", JSON.stringify(duplicatePayload));
 
       const checkDuplicateResponse = await fetch("https://api.lottosheli.com/api/v1/client/user/tickets/check-duplicate-combination", {
         method: "POST",
@@ -530,8 +530,8 @@ export async function handleAdminRoute(
       });
 
       const duplicateText = await checkDuplicateResponse.text();
-      console.log("[apply-to-lotto] duplicate status:", checkDuplicateResponse.status);
-      console.log("[apply-to-lotto] duplicate response:", duplicateText);
+      /*console.log("[apply-to-lotto] duplicate status:", checkDuplicateResponse.status);
+      console.log("[apply-to-lotto] duplicate response:", duplicateText);*/
 
       if (!checkDuplicateResponse.ok) {
         return badRequestResponse(`Failed to check duplicate: ${duplicateText}`);
@@ -564,7 +564,7 @@ export async function handleAdminRoute(
         uiCustomData: {},
       };
 
-      console.log("[apply-to-lotto] pay payload:", JSON.stringify(payPayload));
+      //console.log("[apply-to-lotto] pay payload:", JSON.stringify(payPayload));
 
       const payResponse = await fetch("https://api.lottosheli.com/api/v1/client/payments", {
         method: "POST",
@@ -576,8 +576,8 @@ export async function handleAdminRoute(
       });
 
       const payText = await payResponse.text();
-      console.log("[apply-to-lotto] pay status:", payResponse.status);
-      console.log("[apply-to-lotto] pay response:", payText);
+      /*console.log("[apply-to-lotto] pay status:", payResponse.status);
+      console.log("[apply-to-lotto] pay response:", payText);*/
 
       if (!payResponse.ok) {
         return badRequestResponse(`Failed to pay: ${payText}`);
