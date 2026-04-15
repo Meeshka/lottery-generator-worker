@@ -458,20 +458,28 @@ export async function handleAdminRoute(
       console.log("[apply-to-lotto] raw tickets:", JSON.stringify(tickets));
 
       // Step 1: Calculate price
+      const calculatePayload = {
+        drawType: "DRAW_LOTTO",
+        ticketType: "REGULAR",
+        tables: tickets.length,
+        hasExtra: false,
+        numberOfDraws: 1,
+      };
+
+      console.log("[apply-to-lotto] calculate payload:", JSON.stringify(calculatePayload));
+
       const calculateResponse = await fetch("https://api.lottosheli.com/api/v1/client/tickets/calculate", {
         method: "POST",
         headers: {
           "Authorization": `otp ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          drawType: "DRAW_LOTTO",
-          ticketType: "REGULAR",
-          tables: tickets.length,
-          hasExtra: false,
-          numberOfDraws: 1,
-        }),
+        body: JSON.stringify(calculatePayload),
       });
+
+      const calculateText = await calculateResponse.text();
+      console.log("[apply-to-lotto] calculate status:", calculateResponse.status);
+      console.log("[apply-to-lotto] calculate response:", calculateText);
 
       if (!calculateResponse.ok) {
         const errorText = await calculateResponse.text();
@@ -498,25 +506,33 @@ export async function handleAdminRoute(
       });
       console.log("[apply-to-lotto] tablesNumbers:", JSON.stringify(tablesNumbers));
 
+      const duplicatePayload = {
+        tickets: [
+          {
+            numberOfDraws: 1,
+            autoRenewal: false,
+            drawType: "DRAW_LOTTO",
+            isExtra: false,
+            tablesNumbers,
+            ticketType: "REGULAR",
+          },
+        ],
+      };
+
+      console.log("[apply-to-lotto] duplicate payload:", JSON.stringify(duplicatePayload));
+
       const checkDuplicateResponse = await fetch("https://api.lottosheli.com/api/v1/client/user/tickets/check-duplicate-combination", {
         method: "POST",
         headers: {
           "Authorization": `otp ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          tickets: [
-            {
-              numberOfDraws: 1,
-              autoRenewal: false,
-              drawType: "DRAW_LOTTO",
-              isExtra: false,
-              tablesNumbers,
-              ticketType: "REGULAR",
-            },
-          ],
-        }),
+        body: JSON.stringify(duplicatePayload),
       });
+
+      const duplicateText = await checkDuplicateResponse.text();
+      console.log("[apply-to-lotto] duplicate status:", checkDuplicateResponse.status);
+      console.log("[apply-to-lotto] duplicate response:", duplicateText);
 
       if (!checkDuplicateResponse.ok) {
         const errorText = await checkDuplicateResponse.text();
@@ -529,37 +545,49 @@ export async function handleAdminRoute(
       }
 
       // Step 3: Pay for tickets
+      const payPayload = {
+        transactionType: "PURCHASE",
+        tickets: [
+          {
+            numberOfDraws: 1,
+            autoRenewal: false,
+            drawType: "DRAW_LOTTO",
+            isExtra: false,
+            tablesNumbers,
+            ticketType: "REGULAR",
+          },
+        ],
+        amountFromCredit: calculateData.total,
+        amountFromDeposit: 0,
+        clientUrl: "https://lottosheli.co.il",
+        apiUrl: "https://api.lottosheli.com",
+        useSavedCard: true,
+        saveCard: true,
+        uiCustomData: {},
+      };
+
+      console.log("[apply-to-lotto] pay payload:", JSON.stringify(payPayload));
+
       const payResponse = await fetch("https://api.lottosheli.com/api/v1/client/payments", {
         method: "POST",
         headers: {
           "Authorization": `otp ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          transactionType: "PURCHASE",
-          tickets: [
-            {
-              numberOfDraws: 1,
-              autoRenewal: false,
-              drawType: "DRAW_LOTTO",
-              isExtra: false,
-              tablesNumbers,
-              ticketType: "REGULAR",
-            },
-          ],
-          amountFromCredit: calculateData.total,
-          amountFromDeposit: 0,
-          clientUrl: "https://lottosheli.co.il",
-          apiUrl: "https://api.lottosheli.com",
-          useSavedCard: true,
-          saveCard: true,
-          uiCustomData: {},
-        }),
+        body: JSON.stringify(payPayload),
       });
 
       if (!payResponse.ok) {
         const errorText = await payResponse.text();
         return badRequestResponse(`Failed to pay: ${errorText}`);
+      }
+
+      const payText = await payResponse.text();
+      console.log("[apply-to-lotto] pay status:", payResponse.status);
+      console.log("[apply-to-lotto] pay response:", payText);
+
+      if (!payResponse.ok) {
+        return badRequestResponse(`Failed to pay: ${payText}`);
       }
 
       const payData = await payResponse.json();
