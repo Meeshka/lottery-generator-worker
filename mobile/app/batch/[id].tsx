@@ -403,6 +403,38 @@ export default function BatchDetailsScreen() {
             })
           )}
         </View>
+
+        <Text style={styles.sectionTitle}>All tickets</Text>
+
+        <View style={styles.infoCard}>
+          {tickets.length === 0 ? (
+            <Text style={styles.emptyText}>No tickets found</Text>
+          ) : (
+            tickets.map((ticket, index) => (
+              <View
+                key={ticket.id ? String(ticket.id) : `ticket-${index}`}
+                style={[
+                  styles.resultRow,
+                  index !== tickets.length - 1 && styles.ticketRowBorder,
+                ]}
+              >
+                <View style={styles.ticketHeader}>
+                  <Text style={styles.ticketTitle}>
+                    Ticket #{ticket.ticket_index ?? index + 1}
+                  </Text>
+                </View>
+
+                <Text style={styles.ticketNumbers}>
+                  Numbers: {renderNumbers(parseNumbersJson(ticket.numbers_json))}
+                </Text>
+
+                <Text style={styles.ticketMeta}>
+                  Strong: {ticket.strong_number ?? "—"}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
