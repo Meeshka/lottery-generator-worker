@@ -105,6 +105,7 @@ class Default(WorkerEntrypoint):
             max_common = int(body.get('maxCommon', 3))
             seed = body.get('seed')
             cluster_target = body.get('clusterTarget')
+            weights = body.get('weights')
 
             if cluster_target is not None:
                 cluster_target = int(cluster_target)
@@ -114,6 +115,7 @@ class Default(WorkerEntrypoint):
                 max_common=max_common,
                 seed=seed,
                 cluster_target=cluster_target,
+                weights=weights,
             )
 
             return Response(

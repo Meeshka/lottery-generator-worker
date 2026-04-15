@@ -273,7 +273,7 @@ All responses are JSON. Common error responses:
 
 #### `POST /tickets/generate`
 
-Proxies ticket generation requests to the Python Worker engine.
+Proxies ticket generation requests to the Python Worker engine. Reads current weights from the database and passes them to the Python Worker for direct application.
 
 Request body:
 
@@ -318,7 +318,7 @@ Response (error):
 
 #### `POST /`
 
-Python Worker entry point for generating lottery tickets.
+Python Worker entry point for generating lottery tickets. Accepts optional weights from the main Worker.
 
 Request body:
 
@@ -327,7 +327,13 @@ Request body:
   "count": 10,
   "maxCommon": 3,
   "seed": "optional-seed",
-  "clusterTarget": 1
+  "clusterTarget": 1,
+  "weights": {
+    "SEG_WEIGHTS": [0.25, 0.25, 0.25, 0.25],
+    "ALPHA_OVERFLOW": 0.1,
+    "BETA_ZERO_BY_SEGMENT": [0.1, 0.1, 0.1, 0.1],
+    "clustering": {...}
+  }
 }
 ```
 
@@ -360,6 +366,7 @@ Response (error):
 - `maxCommon`: Maximum allowed common numbers with history/current batch (default: 3)
 - `seed`: Optional random seed for reproducibility
 - `clusterTarget`: Optional target cluster ID (1-4) for distribution-based generation
+- `weights`: Optional weights object to apply directly (SEG_WEIGHTS, ALPHA_OVERFLOW, BETA_ZERO_BY_SEGMENT, clustering). If not provided, falls back to loading from weights.json
 
 #### `POST /recalculate-weights`
 
@@ -945,4 +952,5 @@ mobile/                   # Expo React Native mobile app
 - Result imports always attach to the latest draw in the database.
 - Batches can be created without draw information (targetDrawId, targetPaisId, targetDrawAt, targetDrawSnapshotJson can be null). This is useful when generating tickets before a draw is closed.
 - The main Worker proxies ticket generation requests to the Python Worker via the `/tickets/generate` endpoint. The Python Worker URL is configured via the `PYTHON_WORKER_URL` environment variable in `wrangler.jsonc`.
+- The main Worker reads current weights from the database (`weights` table where `is_current = 1`) and passes them to the Python Worker in the request body. The Python Worker applies these weights directly instead of relying on local `weights.json`. This ensures that weights recalculated via `/admin/recalculate-weights` are immediately used for ticket generation.
 - The Python Worker's `generator_engine.py` now properly loads draw history from JSONL format (`draw_history.jsonl`) using the `draw_history.load_history()` function, extracting the numbers field from each draw object.
