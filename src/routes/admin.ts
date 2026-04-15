@@ -435,6 +435,12 @@ export async function handleAdminRoute(
 
       const batchId = body.batchId;
       const accessToken = body.accessToken;
+      console.log("[apply-to-lotto] batchId:", batchId);
+      console.log("[apply-to-lotto] accessToken present:", !!accessToken);
+      console.log(
+    "[apply-to-lotto] accessToken tail:",
+          accessToken ? accessToken.slice(-8) : null
+      );
 
       // Get batch with tickets
       const batchData = await getBatchWithTicketsById(env.DB, batchId);
@@ -446,6 +452,10 @@ export async function handleAdminRoute(
       if (!tickets || tickets.length === 0) {
         return badRequestResponse("Batch has no tickets");
       }
+
+      console.log("[apply-to-lotto] batch status:", batchData.batch.status);
+      console.log("[apply-to-lotto] tickets count:", tickets.length);
+      console.log("[apply-to-lotto] raw tickets:", JSON.stringify(tickets));
 
       // Step 1: Calculate price
       const calculateResponse = await fetch("https://api.lottosheli.com/api/v1/client/tickets/calculate", {
@@ -486,6 +496,7 @@ export async function handleAdminRoute(
           strongNumbers: [ticket.strong_number || 0],
         };
       });
+      console.log("[apply-to-lotto] tablesNumbers:", JSON.stringify(tablesNumbers));
 
       const checkDuplicateResponse = await fetch("https://api.lottosheli.com/api/v1/client/user/tickets/check-duplicate-combination", {
         method: "POST",
@@ -536,7 +547,7 @@ export async function handleAdminRoute(
               ticketType: "REGULAR",
             },
           ],
-          amountFromCredit: calculateData.commission,
+          amountFromCredit: calculateData.total,
           amountFromDeposit: 0,
           clientUrl: "https://lottosheli.co.il",
           apiUrl: "https://api.lottosheli.com",
