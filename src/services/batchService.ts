@@ -17,13 +17,15 @@ import {
   markBatchConfirmed,
   touchSyncAttempt,
   saveSyncError,
+  updateBatchTargetDrawInfo,
 } from "../repositories/batchesRepo";
 import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo";
 import {
-  fetchActiveTickets,
+  fetchAllActiveTickets,
   ticketsMatch,
   type LottoTicketRecord,
 } from "../utils/lottoApi";
+import { fetchOpenPaisDraw } from "../utils/pais";
 
 export interface CreateBatchWithTicketsInput {
   targetDrawId?: string | null;
@@ -370,4 +372,147 @@ export async function submitAndSyncBatchConfirmation(
       error: errorMessage,
     };
   }
+}
+
+export interface RefreshBatchStatusesSummary {
+  remoteTickets: number;
+  matchedExisting: number;
+  confirmedExisting: number;
+  createdMissing: number;
+}
+
+export interface RefreshBatchStatusesResult {
+  success: boolean;
+  summary: RefreshBatchStatusesSummary;
+}
+
+function remoteTablesToTicketInputs(tables: number[][]): TicketInput[] {
+  return tables.map((table, index) => {
+    const sorted = [...table].map(Number).sort((a, b) => a - b);
+
+    let numbers = sorted;
+    let strong: number | null = null;
+
+    if (sorted.length === 7) {
+      strong = sorted[sorted.length - 1];
+      numbers = sorted.slice(0, 6);
+    }
+
+    return {
+      ticketIndex: index + 1,
+      numbers,
+      strong,
+    };
+  });
+}
+
+export async function refreshBatchStatusesFromLotto(
+  db: D1Database,
+  otpToken: string,
+): Promise<RefreshBatchStatusesResult> {
+  const normalizedToken = otpToken?.trim();
+  if (!normalizedToken) {
+    throw new Error("accessToken is required");
+  }
+
+  const openDraw = await fetchOpenPaisDraw();
+  const targetDrawSnapshotJson = JSON.stringify(openDraw.raw);
+
+  const remoteTickets = (await fetchAllActiveTickets(normalizedToken)).filter(
+    (ticket) => Array.isArray(ticket.tables) && ticket.tables.length > 0,
+  );
+
+  const allBatches = await getBatchesRepo(db);
+  const localBatches = await Promise.all(
+    allBatches.map(async (batch) => {
+      const tickets = await getTicketsByBatchId(db, batch.id);
+      return {
+        batch,
+        tickets,
+        tables: normalizeLocalTables(tickets),
+      };
+    }),
+  );
+
+  const matchedRemoteIds = new Set<string>();
+  let matchedExisting = 0;
+  let confirmedExisting = 0;
+  let createdMissing = 0;
+
+  for (const remote of remoteTickets) {
+    const matchedLocal = localBatches.find((local) =>
+      local.tickets.length > 0 && ticketsMatch(local.tables, remote.tables),
+    );
+
+    if (!matchedLocal) {
+      continue;
+    }
+
+    matchedRemoteIds.add(remote.id);
+    matchedExisting++;
+
+    if (matchedLocal.batch.status === "submitted") {
+      await updateBatchTargetDrawInfo(db, matchedLocal.batch.id, {
+        targetDrawId:
+          remote.drawId !== undefined && remote.drawId !== null
+            ? String(remote.drawId)
+            : null,
+        targetPaisId: openDraw.paisId,
+        targetDrawAt: openDraw.drawAt,
+        targetDrawSnapshotJson,
+      });
+
+      await markBatchConfirmed(db, matchedLocal.batch.id, remote.id, {
+        matchStatus: "full",
+        confirmedPaisId: openDraw.paisId,
+        confirmedTotalPrice: remote.totalPrice ?? null,
+      });
+
+      confirmedExisting++;
+    }
+  }
+
+  for (const remote of remoteTickets) {
+    if (matchedRemoteIds.has(remote.id)) {
+      continue;
+    }
+
+    const ticketInputs = remoteTablesToTicketInputs(remote.tables);
+    if (!ticketInputs.length) {
+      continue;
+    }
+
+    const created = await createBatchWithTickets(db, {
+      targetDrawId:
+        remote.drawId !== undefined && remote.drawId !== null
+          ? String(remote.drawId)
+          : null,
+      targetPaisId: openDraw.paisId,
+      targetDrawAt: openDraw.drawAt,
+      targetDrawSnapshotJson,
+      generatorVersion: "lotto-refresh-import",
+      weightsVersionKey: null,
+      tickets: ticketInputs,
+    });
+
+    await markBatchAsSubmitted(db, created.batch.id);
+
+    await markBatchConfirmed(db, created.batch.id, remote.id, {
+      matchStatus: "imported_from_external",
+      confirmedPaisId: openDraw.paisId,
+      confirmedTotalPrice: remote.totalPrice ?? null,
+    });
+
+    createdMissing++;
+  }
+
+  return {
+    success: true,
+    summary: {
+      remoteTickets: remoteTickets.length,
+      matchedExisting,
+      confirmedExisting,
+      createdMissing,
+    },
+  };
 }

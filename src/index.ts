@@ -6,6 +6,7 @@ import { handleStatsRoute } from "./routes/stats";
 import { countDraws } from "./repositories/drawsRepo";
 import { getCurrentWeights } from "./repositories/weightsRepo";
 import { jsonResponse, notFoundResponse } from "./utils/response";
+import { fetchOpenPaisDraw } from "./utils/pais";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -56,38 +57,20 @@ export default {
 
     if (url.pathname === "/draws/open") {
       try {
-        const response = await fetch("https://www.pais.co.il/include/getNextLotteryDate.ashx?type=1", {
-          headers: {
-            "Accept": "application/json",
-            "User-Agent": "lotto-worker/1.0",
-          },
-        });
-
-        if (!response.ok) {
-          return jsonResponse({
-            ok: false,
-            error: `HTTP ${response.status} from pais.co.il`,
-          }, 500);
-        }
-
-        const data = await response.json();
-
-        if (!Array.isArray(data) || data.length === 0) {
-          return jsonResponse({
-            ok: false,
-            error: "Invalid response from pais.co.il",
-          }, 500);
-        }
+        const openDraw = await fetchOpenPaisDraw();
 
         return jsonResponse({
           ok: true,
-          draw: data[0],
+          draw: openDraw.raw,
         });
       } catch (error) {
-        return jsonResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        }, 500);
+        return jsonResponse(
+          {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          500,
+        );
       }
     }
 

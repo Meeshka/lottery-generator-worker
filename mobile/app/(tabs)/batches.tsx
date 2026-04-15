@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getBatches, applyBatchToLotto } from "../../services/api";
+import { getBatches, applyBatchToLotto, refreshBatchStatuses } from "../../services/api";
 import { getAccessToken } from "../../services/secureStorage";
 
 function getStatusLabel(status: string) {
@@ -20,6 +20,7 @@ function getStatusLabel(status: string) {
 
 function getStatusStyle(status: string) {
   switch (status.toLowerCase()) {
+    case "confirmed":
     case "checked":
     case "done":
     case "completed":
@@ -47,6 +48,7 @@ export default function BatchesScreen() {
   const [error, setError] = useState("");
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [applyingBatchId, setApplyingBatchId] = useState<number | null>(null);
+  const [refreshingStatuses, setRefreshingStatuses] = useState(false);
 
   async function loadBatches() {
     try {
@@ -114,6 +116,40 @@ export default function BatchesScreen() {
         },
       ]
     );
+  }
+
+  async function handleRefreshStatuses() {
+    try {
+      setRefreshingStatuses(true);
+
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        Alert.alert("Error", "Please log in first");
+        return;
+      }
+
+      const result = await refreshBatchStatuses(accessToken);
+      const summary = result.summary || {};
+
+      Alert.alert(
+        "Refresh complete",
+        `Remote tickets: ${summary.remoteTickets ?? 0}
+Matched existing: ${summary.matchedExisting ?? 0}
+Confirmed existing: ${summary.confirmedExisting ?? 0}
+Created missing: ${summary.createdMissing ?? 0}`,
+        [
+          {
+            text: "OK",
+            onPress: () => loadBatches(),
+          },
+        ],
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      Alert.alert("Error", message);
+    } finally {
+      setRefreshingStatuses(false);
+    }
   }
 
   const groupedBatches = useMemo(() => {
@@ -193,6 +229,23 @@ export default function BatchesScreen() {
             </Text>
           </Pressable>
         ))}
+      </View>
+
+      <View style={styles.actionsRow}>
+        <Pressable
+          onPress={handleRefreshStatuses}
+          disabled={refreshingStatuses}
+          style={[
+            styles.refreshButton,
+            refreshingStatuses && styles.refreshButtonDisabled,
+          ]}
+        >
+          {refreshingStatuses ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.refreshButtonText}>Refresh Statuses</Text>
+          )}
+        </Pressable>
       </View>
 
       <FlatList
@@ -377,6 +430,27 @@ const styles = StyleSheet.create({
   },
   error: {
     color: "red",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 12,
+  },
+  refreshButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#34C759",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refreshButtonDisabled: {
+    opacity: 0.6,
+  },
+  refreshButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 
