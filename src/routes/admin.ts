@@ -482,11 +482,10 @@ export async function handleAdminRoute(
       console.log("[apply-to-lotto] calculate response:", calculateText);
 
       if (!calculateResponse.ok) {
-        const errorText = await calculateResponse.text();
-        return badRequestResponse(`Failed to calculate price: ${errorText}`);
+        return badRequestResponse(`Failed to calculate price: ${calculateText}`);
       }
 
-      const calculateData = await calculateResponse.json();
+      const calculateData = JSON.parse(calculateText);
       const totalPrice = calculateData.total;
 
       // Step 2: Check duplicate combinations
@@ -535,11 +534,10 @@ export async function handleAdminRoute(
       console.log("[apply-to-lotto] duplicate response:", duplicateText);
 
       if (!checkDuplicateResponse.ok) {
-        const errorText = await checkDuplicateResponse.text();
-        return badRequestResponse(`Failed to check duplicate: ${errorText}`);
+        return badRequestResponse(`Failed to check duplicate: ${duplicateText}`);
       }
 
-      const checkDuplicateData = await checkDuplicateResponse.json();
+      const checkDuplicateData = JSON.parse(duplicateText);
       if (checkDuplicateData.isDuplicateCombination === true) {
         return badRequestResponse("Duplicate combination detected");
       }
@@ -577,11 +575,6 @@ export async function handleAdminRoute(
         body: JSON.stringify(payPayload),
       });
 
-      if (!payResponse.ok) {
-        const errorText = await payResponse.text();
-        return badRequestResponse(`Failed to pay: ${errorText}`);
-      }
-
       const payText = await payResponse.text();
       console.log("[apply-to-lotto] pay status:", payResponse.status);
       console.log("[apply-to-lotto] pay response:", payText);
@@ -590,9 +583,9 @@ export async function handleAdminRoute(
         return badRequestResponse(`Failed to pay: ${payText}`);
       }
 
-      const payData = await payResponse.json();
+      const payData = JSON.parse(payText);
       if (!payData.success) {
-        return badRequestResponse("Payment failed");
+        return badRequestResponse(`Payment failed: ${payText}`);
       }
 
       // Step 4: Mark batch as submitted
