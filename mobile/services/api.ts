@@ -350,3 +350,28 @@ export async function applyBatchToLotto(batchId: number, accessToken: string) {
 
   return res.json();
 }
+
+export async function refreshBatchStatuses(accessToken: string) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl("/admin/batches/refresh-statuses"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+    body: JSON.stringify({
+      accessToken,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to refresh batch statuses - ${text}`);
+  }
+
+  return res.json();
+}

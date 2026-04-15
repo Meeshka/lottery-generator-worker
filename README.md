@@ -194,6 +194,7 @@ Current mobile functionality includes:
 - **Recalculate weights** - Triggers weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. This provides full weight recalculation functionality without requiring the bridge CLI.
 - **Batches tab** - Displays batches grouped by status with counts. Each status section is pressable and navigates to a filtered view showing only batches with that status. Batches with "generated" status show an "Apply to Lotto" button on the right side of the card.
 - **Apply to Lotto** - For batches with "generated" status, allows applying the batch to Lotto Sheli. This triggers a multi-step flow: calculate price, check duplicate combinations, process payment, and mark the batch as "submitted" on success.
+- **Refresh Statuses** - Fetches all active tickets from Lotto Sheli API and syncs batch statuses. Matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app. Shows summary with remote tickets count, matched existing, confirmed existing, and created missing.
 - batch detail, summary, and result views
 
 ## Python bridge CLI
@@ -874,6 +875,50 @@ The endpoint requires a valid Lotto Sheli access token and will fail if:
 - Duplicate combinations are detected
 - Payment fails
 
+#### `POST /admin/batches/refresh-statuses`
+
+Fetches all active tickets from Lotto Sheli API and syncs batch statuses. Matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app.
+
+Request body:
+
+```json
+{
+  "accessToken": "lotto-access-token"
+}
+```
+
+Response (success):
+
+```json
+{
+  "ok": true,
+  "success": true,
+  "summary": {
+    "remoteTickets": 15,
+    "matchedExisting": 5,
+    "confirmedExisting": 3,
+    "createdMissing": 10
+  }
+}
+```
+
+This endpoint:
+- Fetches the current open draw information from pais.co.il
+- Fetches all active tickets from Lotto Sheli API (paginated)
+- Matches remote tickets with local batches by comparing ticket tables
+- For matched local batches with "submitted" status:
+  - Updates target draw information (targetDrawId, targetPaisId, targetDrawAt, targetDrawSnapshotJson)
+  - Marks the batch as "confirmed" with the external ticket ID
+- For remote tickets that don't match any local batch:
+  - Creates a new batch with the ticket data
+  - Marks the new batch as "submitted" and "confirmed"
+- Returns a summary of the sync operation
+
+The endpoint requires a valid Lotto Sheli access token and will fail if:
+- The access token is invalid or expired
+- The Lotto Sheli API is unreachable
+- The pais.co.il API is unreachable
+
 ## Project structure
 
 ```
@@ -903,6 +948,7 @@ src/
     ├── json.ts           # JSON body parsing
     ├── lottoApi.ts       # External Lotto API client
     ├── lottoAuth.ts      # Lotto authentication utilities
+    ├── pais.ts           # Pais.co.il API client
     └── response.ts       # Response helpers
 
 py-engine/                # Python Worker engine

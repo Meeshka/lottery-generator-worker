@@ -15,6 +15,7 @@ import {
   archiveBatchById,
   markBatchAsSubmitted,
   syncBatchConfirmation,
+  refreshBatchStatusesFromLotto,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -67,6 +68,10 @@ interface ValidateOtpRequestBody {
 
 interface ApplyToLottoRequestBody {
   batchId: number;
+  accessToken: string;
+}
+
+interface RefreshBatchStatusesRequestBody {
   accessToken: string;
 }
 
@@ -560,6 +565,23 @@ export async function handleAdminRoute(
         transactionId: payData.transactionId,
         totalPrice,
         status: batch?.status,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/batches/refresh-statuses" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<RefreshBatchStatusesRequestBody>(request);
+
+      const result = await refreshBatchStatusesFromLotto(env.DB, body.accessToken);
+
+      return jsonResponse({
+        ok: true,
+        ...result,
       });
     } catch (error) {
       return badRequestResponse(
