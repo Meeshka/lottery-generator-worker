@@ -149,7 +149,7 @@ export async function generateTickets(options: {
   seed?: string;
   clusterTarget?: number;
 }) {
-  const res = await fetch(buildPythonUrl("/"), {
+  const res = await fetch(buildUrl("/tickets/generate"), {
     method: "POST",
     headers: {
       "Accept": "application/json",

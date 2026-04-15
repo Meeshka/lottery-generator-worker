@@ -57,11 +57,11 @@ export default function GenerateTicketsScreen() {
     setDescriptionsLoading(true);
     try {
       const weights = await getCurrentWeights();
-      console.log("Weights response:", weights);
+      // console.log("Weights response:", weights);
 
       if (weights && weights.weights_json) {
         const weightsData = JSON.parse(weights.weights_json);
-        console.log("Weights data clustering:", weightsData.clustering);
+        // console.log("Weights data clustering:", weightsData.clustering);
 
         if (weightsData.clustering && weightsData.clustering.clusters) {
           const descriptions: Record<string, string> = {
@@ -76,17 +76,17 @@ export default function GenerateTicketsScreen() {
           }
           setClusterDescriptions(descriptions);
           setAvailableClusters(clusterIds);
-          console.log("Set descriptions:", descriptions);
+          // console.log("Set descriptions:", descriptions);
         } else {
-          console.log("No clustering data found in weights, using fallback");
+          // console.log("No clustering data found in weights, using fallback");
           setClusterDescriptions(getFallbackDescriptions());
         }
       } else {
-        console.log("No weights or weights_json found, using fallback");
+        // console.log("No weights or weights_json found, using fallback");
         setClusterDescriptions(getFallbackDescriptions());
       }
     } catch (err) {
-      console.error("Error fetching cluster descriptions:", err);
+      // console.error("Error fetching cluster descriptions:", err);
       setClusterDescriptions(getFallbackDescriptions());
     } finally {
       setDescriptionsLoading(false);
@@ -158,7 +158,7 @@ export default function GenerateTicketsScreen() {
             targetDrawSnapshotJson = JSON.stringify(drawData);
           }
         } catch (drawErr) {
-          console.warn("Could not fetch open draw, creating batch without draw info:", drawErr);
+          // console.warn("Could not fetch open draw, creating batch without draw info:", drawErr);
         }
 
         const batchResponse = await createBatch({
@@ -190,7 +190,7 @@ export default function GenerateTicketsScreen() {
         Alert.alert("Success", `Generated and saved ${response.count} tickets as batch #${newBatch.id}`);
       } catch (batchErr) {
         const message = batchErr instanceof Error ? batchErr.message : String(batchErr);
-        console.error("Failed to save batch:", message);
+        // console.error("Failed to save batch:", message);
         
         const newBatch: GeneratedBatch = {
           id: `local-${Date.now()}`,

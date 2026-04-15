@@ -10,8 +10,10 @@ from typing import List, Dict, Any, Optional
 
 try:
     from . import lottery_generator as lg
+    from . import draw_history
 except ImportError:
     import lottery_generator as lg
+    import draw_history
 
 
 def generate_tickets(
@@ -44,7 +46,8 @@ def generate_tickets(
     # Load history if available
     history_tickets = []
     try:
-        history_tickets = lg.load_history("draw_history.jsonl")
+        draws = draw_history.load_history("draw_history.jsonl")
+        history_tickets = [tuple(draw["numbers"]) for draw in draws if "numbers" in draw]
     except Exception:
         pass  # History might not be available
     
