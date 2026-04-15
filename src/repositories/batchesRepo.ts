@@ -280,15 +280,15 @@ export async function updateBatchTargetDrawInfo(
   input: UpdateBatchTargetDrawInfoInput,
 ): Promise<BatchRow | null> {
   await db
-    .prepare(\
-      UPDATE ticket_batches
-      SET
-        target_draw_id = ?,
-        target_pais_id = ?,
-        target_draw_at = ?,
-        target_draw_snapshot_json = ?
-      WHERE id = ?
-    \)
+  .prepare(`
+    UPDATE ticket_batches
+    SET
+      target_draw_id = ?,
+      target_pais_id = ?,
+      target_draw_at = ?,
+      target_draw_snapshot_json = ?
+    WHERE id = ?
+  `)
     .bind(
       input.targetDrawId ?? null,
       input.targetPaisId ?? null,
