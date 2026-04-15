@@ -273,7 +273,7 @@ All responses are JSON. Common error responses:
 
 #### `POST /tickets/generate`
 
-Proxies ticket generation requests to the Python Worker engine. Reads current weights from the database and passes them to the Python Worker for direct application.
+Proxies ticket generation requests to the Python Worker engine. Reads current weights from the database and confirmed tickets from confirmed batches, then passes them to the Python Worker for direct application.
 
 Request body:
 
@@ -316,9 +316,17 @@ Response (error):
 - `seed`: Optional random seed for reproducibility
 - `clusterTarget`: Optional target cluster ID (1-4) for distribution-based generation
 
+This endpoint:
+- Reads current weights from the database (`weights` table where `is_current = 1`)
+- Reads confirmed tickets from confirmed batches (batches with status='confirmed' and not deleted)
+- Normalizes and validates confirmed tickets (6 unique numbers in range 1-37)
+- Sends both weights and history tickets to the Python Worker
+- The Python Worker uses confirmed tickets as history for avoiding duplicates and respecting max_common limits
+- The Python Worker enriches history with tickets generated in the current batch to ensure uniqueness within the batch
+
 #### `POST /`
 
-Python Worker entry point for generating lottery tickets. Accepts optional weights from the main Worker.
+Python Worker entry point for generating lottery tickets. Accepts optional weights and history tickets from the main Worker.
 
 Request body:
 
@@ -333,7 +341,8 @@ Request body:
     "ALPHA_OVERFLOW": 0.1,
     "BETA_ZERO_BY_SEGMENT": [0.1, 0.1, 0.1, 0.1],
     "clustering": {...}
-  }
+  },
+  "historyTickets": [[1, 5, 9, 12, 26, 37], [2, 6, 10, 15, 20, 35]]
 }
 ```
 
@@ -367,6 +376,7 @@ Response (error):
 - `seed`: Optional random seed for reproducibility
 - `clusterTarget`: Optional target cluster ID (1-4) for distribution-based generation
 - `weights`: Optional weights object to apply directly (SEG_WEIGHTS, ALPHA_OVERFLOW, BETA_ZERO_BY_SEGMENT, clustering). If not provided, falls back to loading from weights.json
+- `historyTickets`: Optional array of confirmed ticket arrays (each with 6 numbers) to use as history. If not provided, falls back to draw_history.jsonl. The generator enriches this history with tickets generated in the current batch to ensure uniqueness within the batch
 
 #### `POST /recalculate-weights`
 
@@ -952,5 +962,6 @@ mobile/                   # Expo React Native mobile app
 - Result imports always attach to the latest draw in the database.
 - Batches can be created without draw information (targetDrawId, targetPaisId, targetDrawAt, targetDrawSnapshotJson can be null). This is useful when generating tickets before a draw is closed.
 - The main Worker proxies ticket generation requests to the Python Worker via the `/tickets/generate` endpoint. The Python Worker URL is configured via the `PYTHON_WORKER_URL` environment variable in `wrangler.jsonc`.
-- The main Worker reads current weights from the database (`weights` table where `is_current = 1`) and passes them to the Python Worker in the request body. The Python Worker applies these weights directly instead of relying on local `weights.json`. This ensures that weights recalculated via `/admin/recalculate-weights` are immediately used for ticket generation.
-- The Python Worker's `generator_engine.py` now properly loads draw history from JSONL format (`draw_history.jsonl`) using the `draw_history.load_history()` function, extracting the numbers field from each draw object.
+- The main Worker reads current weights from the database (`weights` table where `is_current = 1`) and confirmed tickets from confirmed batches, then passes them to the Python Worker in the request body. The Python Worker applies these weights directly instead of relying on local `weights.json`. This ensures that weights recalculated via `/admin/recalculate-weights` are immediately used for ticket generation.
+- The Python Worker's `generator_engine.py` uses confirmed tickets from the database as history for avoiding duplicates and respecting max_common limits. If no confirmed tickets are provided, it falls back to loading draw history from JSONL format (`draw_history.jsonl`) using the `draw_history.load_history()` function, extracting the numbers field from each draw object.
+- The generator enriches the history with tickets generated in the current batch to ensure uniqueness within the batch. This means each newly generated ticket is added to the history pool for subsequent ticket generation in the same batch.

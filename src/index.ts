@@ -4,6 +4,7 @@ import { handleAuthRoute } from "./routes/auth";
 import { handleBatchesRoute } from "./routes/batches";
 import { handleStatsRoute } from "./routes/stats";
 import { countDraws } from "./repositories/drawsRepo";
+import { getCurrentWeights } from "./repositories/weightsRepo";
 import { jsonResponse, notFoundResponse } from "./utils/response";
 
 export default {
@@ -317,29 +318,59 @@ export default {
 
     if (url.pathname === "/tickets/generate" && request.method === "POST") {
       try {
-        const incoming = await request.json();
+        const incoming = await request.json() as Record<string, unknown>;
 
-        const currentWeights = await env.DB
+        const currentWeights = await getCurrentWeights(env.DB);
+
+        const confirmedTicketsResult = await env.DB
           .prepare(`
-            SELECT weights_json
-            FROM weights
-            WHERE is_current = 1
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
+            SELECT t.numbers_json
+            FROM tickets t
+            INNER JOIN ticket_batches b ON b.id = t.batch_id
+            WHERE b.status = 'confirmed'
+              AND b.deleted_at IS NULL
+            ORDER BY b.confirmed_at DESC, b.id DESC, t.ticket_index ASC, t.id ASC
           `)
-          .first<{ weights_json: string }>();
+          .all<{ numbers_json: string }>();
 
-        const body = {
+        const historyTickets = (confirmedTicketsResult.results ?? [])
+          .map((row) => {
+            try {
+              const parsed = JSON.parse(row.numbers_json) as unknown;
+              if (!Array.isArray(parsed) || parsed.length !== 6) {
+                return null;
+              }
+
+              const nums = parsed.map((x) => Number(x)).sort((a, b) => a - b);
+              if (nums.some((n) => !Number.isInteger(n) || n < 1 || n > 37)) {
+                return null;
+              }
+              if (new Set(nums).size !== 6) {
+                return null;
+              }
+
+              return nums;
+            } catch {
+              return null;
+            }
+          })
+          .filter((nums): nums is number[] => Array.isArray(nums));
+
+        const pythonBody = {
           ...incoming,
           weights: currentWeights?.weights_json
             ? JSON.parse(currentWeights.weights_json)
             : null,
+          historyTickets,
+          historySource: "confirmed_batches",
         };
 
         const pythonRequest = new Request("https://py-engine/", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(pythonBody),
         });
 
         const response = await env.PY_ENGINE.fetch(pythonRequest);
@@ -347,7 +378,9 @@ export default {
 
         return new Response(responseText, {
           status: response.status,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
       } catch (error) {
         return jsonResponse({
