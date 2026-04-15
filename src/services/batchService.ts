@@ -10,6 +10,7 @@ import {
   getBatchById,
   getLatestBatch,
   getLatestGeneratedBatch,
+  getBatchByExternalTicketId,
   archiveBatch,
   markBatchChecked,
   getBatches as getBatchesRepo,
@@ -443,6 +444,12 @@ export async function refreshBatchStatusesFromLotto(
   let createdMissing = 0;
 
   for (const remote of remoteTickets) {
+    const existingByExternalId = await getBatchByExternalTicketId(db, remote.id);
+    if (existingByExternalId) {
+      matchedRemoteIds.add(remote.id);
+      continue;
+    }
+    
     const matchedLocal = localBatches.find((local) =>
       local.tickets.length > 0 && ticketsMatch(local.tables, remote.tables),
     );

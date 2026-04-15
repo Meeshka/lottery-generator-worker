@@ -299,3 +299,19 @@ export async function updateBatchTargetDrawInfo(
     .run();
   return await getBatchById(db, batchId);
 }
+
+export async function getBatchByExternalTicketId(
+  db: D1Database,
+  externalTicketId: string,
+): Promise<BatchRow | null> {
+  const row = await db
+    .prepare(`
+      ${BASE_BATCH_SELECT}
+      WHERE external_ticket_id = ?
+      LIMIT 1
+    `)
+    .bind(externalTicketId)
+    .first<BatchRow>();
+
+  return row ?? null;
+}
