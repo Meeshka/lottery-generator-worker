@@ -165,3 +165,34 @@ export function ticketsMatch(
 
   return true;
 }
+
+export async function fetchAllActiveTickets(
+  otpToken: string,
+  take = 100,
+): Promise<LottoTicketRecord[]> {
+  const allTickets: LottoTicketRecord[] = [];
+  let skip = 0;
+
+  while (true) {
+    const page = await fetchActiveTickets(otpToken, skip, take);
+    const pageTickets = page.tickets ?? [];
+
+    allTickets.push(...pageTickets);
+
+    if (page.meta) {
+      const total = page.meta.count ?? 0;
+      skip += pageTickets.length;
+
+      if (skip >= total || pageTickets.length === 0) {
+        break;
+      }
+    } else {
+      if (pageTickets.length < take) {
+        break;
+      }
+      skip += pageTickets.length;
+    }
+  }
+
+  return allTickets;
+}
