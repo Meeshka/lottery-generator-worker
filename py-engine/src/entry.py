@@ -39,8 +39,6 @@ class Default(WorkerEntrypoint):
                     weights_path = f.name
 
                 try:
-                    import json
-
                     body = await request.json()
                     draws = body.get('draws', [])
                     print(f"[DEBUG] entry.py: Received {len(draws)} draws from main Worker")
