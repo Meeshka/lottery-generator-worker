@@ -61,7 +61,7 @@ export default function InfoScreen() {
         setLoginState("invalid");
       }
     } catch (err) {
-      console.error("Error checking login state:", err);
+      // console.error("Error checking login state:", err);
       setLoginState("not_logged_in");
       setTokenValid(false);
     }
@@ -72,7 +72,7 @@ export default function InfoScreen() {
       await healthCheck();
       setWorkerState("healthy");
     } catch (err) {
-      console.error("Worker health check failed:", err);
+      // console.error("Worker health check failed:", err);
       setWorkerState("unhealthy");
     }
   }
@@ -94,7 +94,7 @@ export default function InfoScreen() {
         setLatestDrawDate(formatted);
       }
     } catch (err) {
-      console.error("Error fetching latest draw:", err);
+      // console.error("Error fetching latest draw:", err);
     }
   }
 
@@ -154,7 +154,7 @@ export default function InfoScreen() {
       // Refresh all states after logout
       await checkAllStates();
     } catch (err) {
-      console.error("Error logging out:", err);
+      // console.error("Error logging out:", err);
       Alert.alert("Error", "Failed to log out");
     }
   }

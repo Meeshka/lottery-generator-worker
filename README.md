@@ -189,7 +189,7 @@ Current mobile functionality includes:
 
 - health checks against the Worker
 - Lotto OTP login through Worker proxy routes
-- **Generate tickets** - Direct ticket generation via the Python Worker engine with configurable parameters (count, max common, seed, cluster target). Generated batches are automatically saved to the database with open draw information from `/draws/open`.
+- **Generate tickets** - Ticket generation via the main Worker proxy route (`/tickets/generate`) which forwards to the Python Worker engine. Configurable parameters include count, max common, seed, and cluster target. Generated batches are automatically saved to the database with open draw information from `/draws/open`.
 - **Update draws** - Fetches draws from Lotto Sheli API and imports them to the Worker DB. Shows the count of new draws added and total draws in the database.
 - **Recalculate weights** - Triggers weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. This provides full weight recalculation functionality without requiring the bridge CLI.
 - batch listing
@@ -226,7 +226,7 @@ python bridge.py full-cycle --batch-key batch-2026-04-10
 - `--max-common`: Maximum common numbers with history (default: 3)
 - `--seed`: Random seed for reproducibility
 - `--weights-path`: Path to weights.json (default: weights.json)
-- `--history-path`: Path to tickets.csv history (default: tickets.csv)
+- `--history-path`: Path to draw_history.jsonl (default: draw_history.jsonl)
 - `--cluster-target`: Target cluster (1-4) for ticket distribution
 - `--batch-key`: Custom batch key (auto-generated UUID if omitted)
 - `--generator-version`: Generator version tag (default: python-v1)
@@ -901,3 +901,4 @@ mobile/                   # Expo React Native mobile app
 - Result imports always attach to the latest draw in the database.
 - Batches can be created without draw information (targetDrawId, targetPaisId, targetDrawAt, targetDrawSnapshotJson can be null). This is useful when generating tickets before a draw is closed.
 - The main Worker proxies ticket generation requests to the Python Worker via the `/tickets/generate` endpoint. The Python Worker URL is configured via the `PYTHON_WORKER_URL` environment variable in `wrangler.jsonc`.
+- The Python Worker's `generator_engine.py` now properly loads draw history from JSONL format (`draw_history.jsonl`) using the `draw_history.load_history()` function, extracting the numbers field from each draw object.

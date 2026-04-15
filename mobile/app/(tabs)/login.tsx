@@ -43,7 +43,7 @@ export default function LoginScreen() {
       if (credentials.idNumber) setIdNumber(credentials.idNumber);
       if (credentials.phoneNumber) setPhoneNumber(credentials.phoneNumber);
     } catch (err) {
-      console.error("Error loading credentials:", err);
+      // console.error("Error loading credentials:", err);
     }
   }
 
@@ -59,7 +59,7 @@ export default function LoginScreen() {
       const isValid = validateToken(token);
       setIsLoggedIn(isValid);
     } catch (err) {
-      console.error("Error checking login status:", err);
+      // console.error("Error checking login status:", err);
       setIsLoggedIn(false);
     }
   }
@@ -69,7 +69,7 @@ export default function LoginScreen() {
       await healthCheck();
       setWorkerHealthy(true);
     } catch (err) {
-      console.error("Worker health check failed:", err);
+      // console.error("Worker health check failed:", err);
       setWorkerHealthy(false);
     }
   }
@@ -139,7 +139,7 @@ export default function LoginScreen() {
       setOtpCode("");
       Alert.alert("Logged Out", "You have been logged out successfully");
     } catch (err) {
-      console.error("Error logging out:", err);
+      // console.error("Error logging out:", err);
       Alert.alert("Error", "Failed to log out");
     }
   }
