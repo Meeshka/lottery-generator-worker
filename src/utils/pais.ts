@@ -1,5 +1,3 @@
-import { jsonResponse } from "./response";
-
 export interface OpenPaisDraw {
   paisId: number | null;
   drawAt: string | null;

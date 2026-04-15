@@ -475,15 +475,15 @@ export async function handleAdminRoute(
       const tablesNumbers = tickets.map((ticket) => {
         let numbers: number[];
         try {
-          numbers = typeof ticket.numbersJson === "string"
-            ? JSON.parse(ticket.numbersJson)
-            : ticket.numbersJson || [];
+          numbers = typeof ticket.numbers_json === "string"
+            ? JSON.parse(ticket.numbers_json)
+            : ticket.numbers_json || [];
         } catch {
           numbers = [];
         }
         return {
           regularNumbers: numbers,
-          strongNumbers: [ticket.strongNumber || 0],
+          strongNumbers: [ticket.strong_number || 0],
         };
       });
 

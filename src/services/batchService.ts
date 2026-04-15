@@ -22,6 +22,7 @@ import {
 import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo";
 import {
   fetchAllActiveTickets,
+  fetchActiveTickets,
   ticketsMatch,
   type LottoTicketRecord,
 } from "../utils/lottoApi";
@@ -423,8 +424,9 @@ export async function refreshBatchStatusesFromLotto(
   );
 
   const allBatches = await getBatchesRepo(db);
+  const submittedBatches = await getBatchesRepo(db, { status: "submitted" });
   const localBatches = await Promise.all(
-    allBatches.map(async (batch) => {
+    submittedBatches.map(async (batch) => {
       const tickets = await getTicketsByBatchId(db, batch.id);
       return {
         batch,
@@ -433,7 +435,6 @@ export async function refreshBatchStatusesFromLotto(
       };
     }),
   );
-
   const matchedRemoteIds = new Set<string>();
   let matchedExisting = 0;
   let confirmedExisting = 0;

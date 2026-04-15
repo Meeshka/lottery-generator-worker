@@ -171,11 +171,12 @@ Created missing: ${summary.createdMissing ?? 0}`,
       created: 3,
       generated: 4,
       submitted: 5,
-      checked: 6,
-      done: 7,
-      completed: 8,
-      failed: 9,
-      error: 10,
+      confirmed: 6,
+      checked: 7,
+      done: 8,
+      completed: 9,
+      failed: 10,
+      error: 11,
     };
     return Object.keys(groupedBatches).sort((a, b) => {
       const aPriority = priority[a.toLowerCase()] ?? 999;
