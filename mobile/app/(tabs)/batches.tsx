@@ -286,9 +286,11 @@ export default function BatchesScreen() {
       Alert.alert(
         "Refresh complete",
         `Remote tickets: ${summary.remoteTickets ?? 0}
+Retargeted generated: ${summary.retargetedGenerated ?? 0}
 Matched existing: ${summary.matchedExisting ?? 0}
 Confirmed existing: ${summary.confirmedExisting ?? 0}
-Created missing: ${summary.createdMissing ?? 0}`,
+Created missing: ${summary.createdMissing ?? 0}
+Checked now: ${summary.checkedNow ?? 0}`,
         [
           {
             text: "OK",

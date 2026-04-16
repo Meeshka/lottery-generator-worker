@@ -196,7 +196,8 @@ Current mobile functionality includes:
 - **Apply to Lotto** - For batches with "generated" status, allows applying the batch to Lotto Sheli. This triggers a multi-step flow: calculate price, check duplicate combinations, process payment, and mark the batch as "submitted" on success.
 - **Archive** - For batches with "checked" status, allows archiving the batch. This calls the `/admin/batches/{id}/archive-checked` endpoint which validates the batch status is "checked" before changing it to "archived". The batch must be in "checked" status to be archived.
 - **Delete** - For batches with "generated" or "archived" status, allows deleting the batch. This calls the `DELETE /admin/batches/{id}` endpoint which performs a soft delete by setting the `deleted_at` timestamp. Deleted batches are hidden from the UI by default but remain in the database.
-- **Refresh Statuses** - Fetches all active tickets from Lotto Sheli API and syncs batch statuses. Matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app. Shows summary with remote tickets count, matched existing, confirmed existing, and created missing.
+- **Refresh Statuses** - Fetches all active tickets from Lotto Sheli API and syncs batch statuses. Matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app. Shows summary with remote tickets count, retargeted generated, matched existing, confirmed existing, created missing, and checked now. Also automatically checks results for confirmed batches linked to the latest draw.
+- **Check Missing Results** - Scans all confirmed and archived batches to find those without calculated results and automatically calculates them using their linked draw data. Shows summary with scanned count, eligible count, checked now count, skipped counts (already has results, draw not available), and failed count. Useful for backfilling results for batches that were confirmed before result checking was automated.
 - **Batch detail view** - Comprehensive batch information including:
   - Batch metadata (ID, key, status, created/checked dates)
   - Linked draw information with draw numbers and strong number
@@ -772,7 +773,9 @@ Returns one batch and its tickets.
 
 #### `POST /admin/batches/{id}/results/import`
 
-Imports checked results for a batch and marks the batch as `checked`.
+Imports checked results for a batch and marks the batch as `checked`. Supports two modes: explicit result import and automatic calculation.
+
+**Explicit import mode** - when `results` array is provided:
 
 Request body:
 
@@ -793,7 +796,49 @@ Request body:
 }
 ```
 
-Validation rules:
+Response:
+
+```json
+{
+  "ok": true,
+  "batchId": 123,
+  "drawDbId": 456,
+  "inserted": 10,
+  "mode": "imported"
+}
+```
+
+**Auto-calculation mode** - when `results` array is empty or omitted:
+
+Request body:
+
+```json
+{
+  "prizeTable": "regular",
+  "auto": true
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "batchId": 123,
+  "drawDbId": 456,
+  "inserted": 10,
+  "mode": "calculated"
+}
+```
+
+In auto-calculation mode:
+- Fetches the latest draw from the database (or uses `drawDbId` if provided)
+- Parses ticket numbers from the batch
+- Calculates match counts, matched numbers, strong matches, and prizes automatically
+- For archived batches, only updates `checked_at` without changing status
+- For other batches, updates both `checked_at` and status to 'checked'
+
+Validation rules (explicit import):
 
 - `results` must not be empty
 - each `ticketIndex` must exist in the target batch
@@ -993,6 +1038,47 @@ The endpoint requires a valid Lotto Sheli access token and will fail if:
 - The access token is invalid or expired
 - The Lotto Sheli API is unreachable
 - The pais.co.il API is unreachable
+
+#### `POST /admin/batches/check-missing-results`
+
+Scans all confirmed and archived batches to find those without calculated results and automatically calculates them using their linked draw data.
+
+Request body:
+
+```json
+{}
+```
+
+Response (success):
+
+```json
+{
+  "ok": true,
+  "success": true,
+  "summary": {
+    "scanned": 25,
+    "eligible": 8,
+    "checkedNow": 5,
+    "skippedWithResults": 12,
+    "skippedNoDraw": 3,
+    "failed": 0
+  }
+}
+```
+
+This endpoint:
+- Scans all batches with status 'confirmed' or 'archived'
+- Skips batches that already have results in the database
+- Skips batches without a linked draw
+- For eligible batches, calls `calculateAndImportBatchResults` with the linked draw ID
+- For archived batches, only updates `checked_at` without changing status
+- Returns a summary of the operation including:
+  - `scanned`: Total number of batches scanned
+  - `eligible`: Number of batches eligible for result checking
+  - `checkedNow`: Number of batches successfully checked
+  - `skippedWithResults`: Number of batches skipped (already have results)
+  - `skippedNoDraw`: Number of batches skipped (no linked draw)
+  - `failed`: Number of batches that failed during checking
 
 ## Project structure
 

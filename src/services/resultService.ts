@@ -1,19 +1,29 @@
 import type { TicketResultInput, TicketResultRow } from "../types";
-import { getLatestDraw } from "../repositories/drawsRepo";
+import { getLatestDraw, getDrawById } from "../repositories/drawsRepo";
 import {
   getBatchById,
   getLatestBatch,
   getLatestGeneratedBatch,
   markBatchChecked,
 } from "../repositories/batchesRepo";
-import { getTicketByBatchIdAndIndex } from "../repositories/ticketsRepo";
-import { getResultsByBatchId, insertTicketResults } from "../repositories/resultsRepo";
+import { getTicketByBatchIdAndIndex, getTicketsByBatchId } from "../repositories/ticketsRepo";
+import {
+  deleteResultsByBatchId,
+  getResultsByBatchId,
+  insertTicketResults,
+} from "../repositories/resultsRepo";
 
 export interface ImportBatchResultsInput {
   batchId: number;
   drawId?: string | null;
   prizeTable?: string | null;
   results: TicketResultInput[];
+}
+
+export interface CalculateBatchResultsInput {
+  batchId: number;
+  drawDbId?: number | null;
+  prizeTable?: string | null;
 }
 
 export interface BatchSummary {
@@ -53,6 +63,89 @@ function validateResultInput(item: TicketResultInput): void {
   if (item.qualifies3Plus !== (item.matchCount >= 3)) {
     throw new Error(`Ticket ${item.ticketIndex}: qualifies3Plus does not match matchCount`);
   }
+}
+
+function parseTicketNumbersJson(value: string, batchId: number, ticketIndex: number): number[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(
+      `Invalid numbers_json for batch ${batchId}, ticketIndex ${ticketIndex}`,
+    );
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 6) {
+    throw new Error(
+      `Ticket ${ticketIndex} in batch ${batchId} must contain exactly 6 numbers`,
+    );
+  }
+
+  const numbers = parsed.map((n) => Number(n)).sort((a, b) => a - b);
+
+  if (numbers.some((n) => !Number.isInteger(n) || n < 1 || n > 37)) {
+    throw new Error(
+      `Ticket ${ticketIndex} in batch ${batchId} contains invalid numbers`,
+    );
+  }
+
+  if (new Set(numbers).size !== 6) {
+    throw new Error(
+      `Ticket ${ticketIndex} in batch ${batchId} contains duplicate numbers`,
+    );
+  }
+
+  return numbers;
+}
+
+function parseWinningTables(rawJson: string | null): Record<string, unknown> | null {
+  if (!rawJson) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawJson) as Record<string, unknown>;
+    const winningTables = parsed?.winningTables;
+
+    if (!winningTables || typeof winningTables !== "object") {
+      return null;
+    }
+
+    return winningTables as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function calculatePrize(
+  winningTables: Record<string, unknown> | null,
+  prizeTable: string,
+  matchCount: number,
+  strongMatch: boolean | null,
+): number | null {
+  if (matchCount < 3) {
+    return 0;
+  }
+
+  if (!winningTables) {
+    return null;
+  }
+
+  const prizeTableValues = winningTables[prizeTable];
+  if (!prizeTableValues || typeof prizeTableValues !== "object") {
+    return null;
+  }
+
+  const key = strongMatch === true ? `Strong${matchCount}` : `G${matchCount}`;
+  const rawPrize = (prizeTableValues as Record<string, unknown>)[key];
+
+  if (rawPrize === null || rawPrize === undefined) {
+    return null;
+  }
+
+  const numericPrize = Number(rawPrize);
+  return Number.isFinite(numericPrize) ? numericPrize : null;
 }
 
 export async function importBatchResults(
@@ -121,12 +214,89 @@ export async function importBatchResults(
     });
   }
 
+  await deleteResultsByBatchId(db, input.batchId);
   await insertTicketResults(db, rowsToInsert);
   await markBatchChecked(db, input.batchId);
 
   return {
     batchId: input.batchId,
     drawDbId: latestDraw.id,
+    inserted: rowsToInsert.length,
+  };
+}
+
+export async function calculateAndImportBatchResults(
+  db: D1Database,
+  input: CalculateBatchResultsInput,
+): Promise<{ batchId: number; drawDbId: number; inserted: number }> {
+  if (!Number.isInteger(input.batchId) || input.batchId < 1) {
+    throw new Error("batchId must be a positive integer");
+  }
+
+  const batch = await getBatchById(db, input.batchId);
+  if (!batch) {
+    throw new Error(`Batch not found: ${input.batchId}`);
+  }
+
+  const draw = input.drawDbId
+    ? await getDrawById(db, input.drawDbId)
+    : await getLatestDraw(db);
+
+  if (!draw) {
+    throw new Error("No suitable draw found in database");
+  }
+
+  const tickets = await getTicketsByBatchId(db, input.batchId);
+  if (!tickets.length) {
+    throw new Error(`Batch ${input.batchId} has no tickets`);
+  }
+
+  const drawNumbers = parseTicketNumbersJson(draw.numbers_json, input.batchId, 0);
+  const drawNumberSet = new Set(drawNumbers);
+  const winningTables = parseWinningTables(draw.raw_json);
+  const prizeTable = input.prizeTable ?? "regular";
+
+  const rowsToInsert = tickets.map((ticket) => {
+    const ticketNumbers = parseTicketNumbersJson(
+      ticket.numbers_json,
+      input.batchId,
+      ticket.ticket_index,
+    );
+
+    const matchedNumbers = ticketNumbers.filter((n) => drawNumberSet.has(n));
+    const matchCount = matchedNumbers.length;
+
+    const strongMatch =
+      ticket.strong_number === null || draw.strong_number === null
+        ? null
+        : ticket.strong_number === draw.strong_number;
+
+    const qualifies3Plus = matchCount >= 3;
+
+    return {
+      ticketId: ticket.id,
+      drawDbId: draw.id,
+      matchCount,
+      matchedNumbers,
+      strongMatch,
+      qualifies3Plus,
+      prize: calculatePrize(winningTables, prizeTable, matchCount, strongMatch),
+      prizeTable,
+    };
+  });
+
+  await deleteResultsByBatchId(db, input.batchId);
+  await insertTicketResults(db, rowsToInsert);
+
+  if (batch.status === "archived") {
+    await markBatchChecked(db, input.batchId, { changeStatus: false });
+  } else {
+    await markBatchChecked(db, input.batchId);
+  }
+
+  return {
+    batchId: input.batchId,
+    drawDbId: draw.id,
     inserted: rowsToInsert.length,
   };
 }

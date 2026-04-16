@@ -121,15 +121,22 @@ export async function getLatestGeneratedBatch(
 export async function markBatchChecked(
   db: D1Database,
   batchId: number,
+  options?: { changeStatus?: boolean },
 ): Promise<void> {
+  const changeStatus = options?.changeStatus !== false;
+
   await db
     .prepare(`
       UPDATE ticket_batches
-      SET status = 'checked',
-          checked_at = CURRENT_TIMESTAMP
+      SET
+        checked_at = COALESCE(checked_at, CURRENT_TIMESTAMP),
+        status = CASE
+          WHEN ? = 1 THEN 'checked'
+          ELSE status
+        END
       WHERE id = ?
     `)
-    .bind(batchId)
+    .bind(changeStatus ? 1 : 0, batchId)
     .run();
 }
 

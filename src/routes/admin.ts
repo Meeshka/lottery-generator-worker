@@ -18,10 +18,12 @@ import {
   syncBatchConfirmation,
   refreshBatchStatusesFromLotto,
   deleteBatchById,
+  checkMissingBatchResults,
 } from "../services/batchService";
 import {
   getBatchResults,
   importBatchResults,
+  calculateAndImportBatchResults,
 } from "../services/resultService";
 import { upsertDraw, getDrawByDrawId } from "../repositories/drawsRepo";
 import { insertWeights } from "../repositories/weightsRepo";
@@ -40,7 +42,8 @@ interface CreateBatchRequestBody {
 interface ImportResultsRequestBody {
   drawId?: string | null;
   prizeTable?: string | null;
-  results: TicketResultInput[];
+  results?: TicketResultInput[];
+  auto?: boolean;
 }
 
 interface ImportDrawsRequestBody {
@@ -261,18 +264,30 @@ export async function handleAdminRoute(
     }
 
     try {
-      const body = await readJsonBody<ImportResultsRequestBody>(request);
+      const bodyText = await request.text();
+      const body: ImportResultsRequestBody = bodyText
+        ? JSON.parse(bodyText)
+        : {};
 
-      const result = await importBatchResults(env.DB, {
-        batchId,
-        drawId: body.drawId ?? null,
-        prizeTable: body.prizeTable ?? null,
-        results: body.results ?? [],
-      });
+      const hasExplicitResults =
+        Array.isArray(body.results) && body.results.length > 0;
+
+      const result = hasExplicitResults
+        ? await importBatchResults(env.DB, {
+            batchId,
+            drawId: body.drawId ?? null,
+            prizeTable: body.prizeTable ?? null,
+            results: body.results ?? [],
+          })
+        : await calculateAndImportBatchResults(env.DB, {
+            batchId,
+            prizeTable: body.prizeTable ?? "regular",
+          });
 
       return jsonResponse({
         ok: true,
         ...result,
+        mode: hasExplicitResults ? "imported" : "calculated",
       });
     } catch (error) {
       return badRequestResponse(
@@ -650,6 +665,21 @@ export async function handleAdminRoute(
       const body = await readJsonBody<RefreshBatchStatusesRequestBody>(request);
 
       const result = await refreshBatchStatusesFromLotto(env.DB, body.accessToken);
+
+      return jsonResponse({
+        ok: true,
+        ...result,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/batches/check-missing-results" && request.method === "POST") {
+    try {
+      const result = await checkMissingBatchResults(env.DB);
 
       return jsonResponse({
         ok: true,
