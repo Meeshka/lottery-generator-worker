@@ -39,6 +39,37 @@ function getStatusStyle(status: string) {
   }
 }
 
+function getTabBackgroundColor(status: string) {
+  switch (status.toLowerCase()) {
+    case "generated":
+      return "#FFD54A"; // yellow
+    case "submitted":
+      return "#A5D6A7"; // light green
+    case "confirmed":
+      return "#4CAF50"; // green
+    case "checked":
+      return "#81D4FA"; // light blue
+    case "archived":
+      return "#BDBDBD"; // grey
+    default:
+      return "#007AFF"; // default blue for "all"
+  }
+}
+
+function getTabTextColor(status: string) {
+  switch (status.toLowerCase()) {
+    case "confirmed":
+      return "#fff"; // white text on green
+    case "generated":
+    case "submitted":
+    case "checked":
+    case "archived":
+      return "#333"; // dark text on lighter colors
+    default:
+      return "#fff"; // white text on blue
+  }
+}
+
 function parseNumbersJson(value?: string | null) {
   if (!value) return [];
   try {
@@ -240,20 +271,32 @@ Created missing: ${summary.createdMissing ?? 0}`,
     <SafeAreaView style={styles.container}>
       <View style={styles.tabsContainer}>
         <Pressable
-          style={[styles.tab, selectedTab === "all" && styles.tabActive]}
+          style={[
+            styles.tab,
+            selectedTab === "all" && { backgroundColor: getTabBackgroundColor("all") }
+          ]}
           onPress={() => setSelectedTab("all")}
         >
-          <Text style={[styles.tabText, selectedTab === "all" && styles.tabTextActive]}>
+          <Text style={[
+            styles.tabText,
+            selectedTab === "all" && { color: getTabTextColor("all") }
+          ]}>
             All
           </Text>
         </Pressable>
         {allStatuses.map((status) => (
           <Pressable
             key={status}
-            style={[styles.tab, selectedTab === status && styles.tabActive]}
+            style={[
+              styles.tab,
+              selectedTab === status && { backgroundColor: getTabBackgroundColor(status) }
+            ]}
             onPress={() => setSelectedTab(status)}
           >
-            <Text style={[styles.tabText, selectedTab === status && styles.tabTextActive]}>
+            <Text style={[
+              styles.tabText,
+              selectedTab === status && { color: getTabTextColor(status) }
+            ]}>
               {getStatusLabel(status)}
             </Text>
           </Pressable>
