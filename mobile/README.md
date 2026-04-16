@@ -6,14 +6,21 @@ Expo React Native mobile app for the lottery generator worker system. It uses th
 
 - View Worker health status
 - Login with Lotto OTP through Worker proxy routes
+- **Role-based access control** - Admin users have access to additional features:
+  - View user role (Admin/User) in Info tab
+  - Update draws from Lotto API
+  - Recalculate weights via Python Worker engine
+  - Check missing batch results
+  - Archive checked batches
+  - Delete generated/archived batches
 - **Generate tickets** - Generate lottery tickets via the Python Worker engine with configurable parameters:
   - Number of tickets (dropdown: 2, 4, 6, 8, 10, 12, 14)
   - Max common numbers with history
   - Optional random seed for reproducibility
   - Cluster target selection with dynamic descriptions fetched from current weights (e.g., S3-heavy, balanced, low+S3 mix, high-heavy patterns)
   - Generated batches are automatically saved to the database with open draw information
-- **Update draws** - Fetch draws from Lotto Sheli API and import them to the Worker DB. Shows the count of new draws added and total draws in the database.
-- **Recalculate weights** - Trigger weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB.
+- **Update draws** - Fetch draws from Lotto Sheli API and import them to the Worker DB. Shows the count of new draws added and total draws in the database. (Admin only)
+- **Recalculate weights** - Trigger weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. (Admin only)
 - **Batches tab** - View all batches with status filtering tabs (All, generated, submitted, confirmed, checked, archived, etc.). Each tab shows batches filtered by that status.
 - **Apply to Lotto** - For batches with "generated" status, apply the batch to Lotto Sheli through a multi-step flow: calculate price, check duplicate combinations, process payment, and mark the batch as "submitted" on success.
 - **Refresh Statuses** - Sync batch statuses with Lotto Sheli API. Fetches all active tickets, matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app.
@@ -25,7 +32,7 @@ Expo React Native mobile app for the lottery generator worker system. It uses th
   - Winning tickets section with matched numbers highlighted in green
   - All results section showing match details for each ticket
   - All tickets section with draw number matching visualization (green = matched)
-- Store Lotto access tokens securely on device using Expo SecureStore
+- Store Lotto access tokens and auth profile securely on device using Expo SecureStore
 - Save ID number and phone number locally with AsyncStorage for convenience
 
 ## Setup
@@ -105,4 +112,5 @@ The app no longer calls LottoSheli directly from the client for OTP actions. All
 ## Security
 
 - Lotto access and refresh tokens are stored with Expo SecureStore.
+- User authentication profile (including role) is stored securely with AsyncStorage.
 - Saved ID number and phone number are stored locally with AsyncStorage for convenience.

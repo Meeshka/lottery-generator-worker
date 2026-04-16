@@ -19,13 +19,16 @@ import {
 } from "../../services/api";
 import {
   getAccessToken,
+  getAuthProfile,
   clearTokens,
+  clearAuthProfile,
 } from "../../services/secureStorage";
 
 export default function InfoScreen() {
   const [loginState, setLoginState] = useState<"checking" | "logged_in" | "not_logged_in" | "invalid">("checking");
   const [workerState, setWorkerState] = useState<"checking" | "healthy" | "unhealthy">("checking");
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [latestDrawDate, setLatestDrawDate] = useState<string | null>(null);
   const [updatingDraws, setUpdatingDraws] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
@@ -47,28 +50,34 @@ export default function InfoScreen() {
   }
 
   async function checkLoginState() {
-    try {
-      const token = await getAccessToken();
-      if (!token) {
-        setLoginState("not_logged_in");
-        setTokenValid(false);
-        return;
-      }
-
-      setLoginState("logged_in");
-      
-      // Validate token by checking JWT expiration
-      const isValid = validateToken(token);
-      setTokenValid(isValid);
-      if (!isValid) {
-        setLoginState("invalid");
-      }
-    } catch (err) {
-      // console.error("Error checking login state:", err);
+  try {
+    const token = await getAccessToken();
+    if (!token) {
       setLoginState("not_logged_in");
       setTokenValid(false);
+      setIsAdmin(false);
+      return;
     }
+
+    setLoginState("logged_in");
+
+    const isValid = validateToken(token);
+    setTokenValid(isValid);
+
+    if (!isValid) {
+      setLoginState("invalid");
+      setIsAdmin(false);
+      return;
+    }
+
+    const profile = await getAuthProfile();
+    setIsAdmin(!!profile?.isAdmin);
+  } catch {
+    setLoginState("not_logged_in");
+    setTokenValid(false);
+    setIsAdmin(false);
   }
+}
 
   async function checkWorkerState() {
     try {
@@ -149,18 +158,18 @@ export default function InfoScreen() {
   }
 
   async function handleLogout() {
-    try {
-      await clearTokens();
-      setLoginState("not_logged_in");
-      setTokenValid(false);
-      Alert.alert("Logged Out", "You have been logged out successfully");
-      // Refresh all states after logout
-      await checkAllStates();
-    } catch (err) {
-      // console.error("Error logging out:", err);
-      Alert.alert("Error", "Failed to log out");
-    }
+  try {
+    await clearTokens();
+    await clearAuthProfile();
+    setLoginState("not_logged_in");
+    setTokenValid(false);
+    setIsAdmin(false);
+    Alert.alert("Logged Out", "You have been logged out successfully");
+    await checkAllStates();
+  } catch {
+    Alert.alert("Error", "Failed to log out");
   }
+}
 
   async function handleRecalculateWeights() {
     const token = await getAccessToken();
@@ -293,6 +302,11 @@ export default function InfoScreen() {
         </View>
 
         <View style={styles.infoCard}>
+          <Text style={styles.label}>Role</Text>
+          <Text style={styles.value}>{isAdmin ? "Admin" : "User"}</Text>
+        </View>
+
+        <View style={styles.infoCard}>
           <Text style={styles.label}>Worker State</Text>
           <Text style={styles.value}>{getWorkerStateText()}</Text>
         </View>
@@ -304,54 +318,60 @@ export default function InfoScreen() {
           </Text>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-            (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
-          ]}
-          onPress={handleUpdateDraws}
-          disabled={updatingDraws || !tokenValid || loginState !== "logged_in"}
-        >
-          {updatingDraws ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Update Draws</Text>
-          )}
-        </Pressable>
+        {isAdmin && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+              (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
+            ]}
+            onPress={handleUpdateDraws}
+            disabled={updatingDraws || !tokenValid || loginState !== "logged_in"}
+          >
+            {updatingDraws ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>Update Draws</Text>
+            )}
+          </Pressable>
+        )}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-            (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
-          ]}
-          onPress={handleRecalculateWeights}
-          disabled={recalculatingWeights || !tokenValid || loginState !== "logged_in"}
-        >
-          {recalculatingWeights ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Recalculate Weights</Text>
-          )}
-        </Pressable>
+        {isAdmin && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+              (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
+            ]}
+            onPress={handleRecalculateWeights}
+            disabled={recalculatingWeights || !tokenValid || loginState !== "logged_in"}
+          >
+            {recalculatingWeights ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>Recalculate Weights</Text>
+            )}
+          </Pressable>
+        )}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            styles.checkResultsButton,
-            pressed && styles.buttonPressed,
-            (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
-          ]}
-          onPress={handleCheckMissingResults}
-          disabled={checkingMissingResults || !tokenValid || loginState !== "logged_in"}
-        >
-          {checkingMissingResults ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Check Missing Results</Text>
-          )}
-        </Pressable>
+        {isAdmin && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              styles.checkResultsButton,
+              pressed && styles.buttonPressed,
+              (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
+            ]}
+            onPress={handleCheckMissingResults}
+            disabled={checkingMissingResults || !tokenValid || loginState !== "logged_in"}
+          >
+            {checkingMissingResults ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.buttonText}>Check Missing Results</Text>
+            )}
+          </Pressable>
+        )}
 
         {loginState === "logged_in" && (
           <Pressable

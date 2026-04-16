@@ -12,13 +12,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { generateOtp, validateOtp, healthCheck, validateToken } from "../../services/api";
+import { generateOtp, validateOtp, healthCheck, validateToken, getMe } from "../../services/api";
 import {
   saveTokens,
   saveUserCredentials,
+  saveAuthProfile,
   getUserCredentials,
   getAccessToken,
   clearTokens,
+  clearAuthProfile,
 } from "../../services/secureStorage";
 
 export default function LoginScreen() {
@@ -110,19 +112,30 @@ export default function LoginScreen() {
         otpCode.trim()
       );
 
-      // Save tokens securely
       if (response.accessToken && response.refreshToken) {
         await saveTokens(response.accessToken, response.refreshToken);
+
+        const me = await getMe(response.accessToken);
+
+        await saveAuthProfile({
+          lottoUserId: String(me.lottoUserId),
+          idNumber: me.idNumber ?? null,
+          email: me.email ?? null,
+          phone: me.phone ?? null,
+          firstName: me.firstName ?? null,
+          lastName: me.lastName ?? null,
+          isAdmin: !!me.isAdmin,
+          role: me.isAdmin ? "admin" : "user",
+          iat: me.iat ?? null,
+          exp: me.exp ?? null,
+        });
       }
 
-      // Save credentials for convenience
       await saveUserCredentials(idNumber.trim(), phoneNumber.trim());
 
       Alert.alert("Success", "Login successful!");
       setOtpCode("");
       setIsLoggedIn(true);
-      
-      // Navigate to info tab to refresh and show updated state
       router.push("/(tabs)/info");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -133,16 +146,16 @@ export default function LoginScreen() {
   }
 
   async function handleLogout() {
-    try {
-      await clearTokens();
-      setIsLoggedIn(false);
-      setOtpCode("");
-      Alert.alert("Logged Out", "You have been logged out successfully");
-    } catch (err) {
-      // console.error("Error logging out:", err);
-      Alert.alert("Error", "Failed to log out");
-    }
+  try {
+    await clearTokens();
+    await clearAuthProfile();
+    setIsLoggedIn(false);
+    setOtpCode("");
+    Alert.alert("Logged Out", "You have been logged out successfully");
+  } catch {
+    Alert.alert("Error", "Failed to log out");
   }
+}
 
   return (
     <SafeAreaView style={styles.container}>
