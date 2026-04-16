@@ -206,3 +206,28 @@ export async function countDraws(db: D1Database): Promise<number> {
 
   return result?.count ?? 0;
 }
+
+export async function getDrawById(
+  db: D1Database,
+  id: number,
+): Promise<DrawRow | null> {
+  const row = await db
+    .prepare(`
+      SELECT
+        id,
+        draw_id,
+        draw_date,
+        numbers_json,
+        strong_number,
+        raw_json,
+        pais_id,
+        created_at
+      FROM draws
+      WHERE id = ?
+      LIMIT 1
+    `)
+    .bind(id)
+    .first<DrawRow>();
+
+  return row ?? null;
+}

@@ -15,12 +15,24 @@ import {
   getBatchTickets,
 } from "../../services/api";
 
+type LinkedDraw = {
+  id?: number;
+  draw_id?: string;
+  draw_date?: string;
+  numbers_json?: string;
+  strong_number?: number | null;
+  pais_id?: number | null;
+};
+
 type Batch = {
   id?: number;
   batch_key?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
+  target_draw_id?: string | null;
+  target_pais_id?: number | null;
+  linked_draw?: LinkedDraw | null;
 };
 
 type Summary = {
@@ -102,6 +114,51 @@ function parseNumbersJson(value?: string) {
   } catch {
     return [];
   }
+}
+
+function NumberPill({
+  value,
+  matched = false,
+}: {
+  value: number;
+  matched?: boolean;
+}) {
+  return (
+    <View style={[styles.numberPill, matched && styles.numberPillMatched]}>
+      <Text
+        style={[
+          styles.numberPillText,
+          matched && styles.numberPillTextMatched,
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function NumbersPills({
+  numbers,
+  matchedSet,
+}: {
+  numbers: number[];
+  matchedSet?: Set<number>;
+}) {
+  if (!numbers.length) {
+    return <Text style={styles.emptyText}>—</Text>;
+  }
+
+  return (
+    <View style={styles.numbersWrap}>
+      {numbers.map((value) => (
+        <NumberPill
+          key={value}
+          value={value}
+          matched={matchedSet ? matchedSet.has(value) : false}
+        />
+      ))}
+    </View>
+  );
 }
 
 function renderNumbers(numbers: number[]) {
@@ -188,7 +245,14 @@ export default function BatchDetailsScreen() {
       maxMatchCount,
     };
   }, [results]);
+  const linkedDraw = batch?.linked_draw ?? null;
 
+  const drawNumbers = useMemo(
+    () => parseNumbersJson(linkedDraw?.numbers_json),
+    [linkedDraw?.numbers_json]
+  );
+
+  const drawNumberSet = useMemo(() => new Set(drawNumbers), [drawNumbers]);
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
@@ -234,7 +298,32 @@ export default function BatchDetailsScreen() {
             Checked: {formatDate(summary?.checkedAt)}
           </Text>
         </View>
+        {linkedDraw && drawNumbers.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Linked draw</Text>
 
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>Draw</Text>
+                <Text style={styles.infoValue}>
+                  {linkedDraw.pais_id ?? linkedDraw.draw_id ?? "—"}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoKey}>Date</Text>
+                <Text style={styles.infoValue}>{formatDate(linkedDraw.draw_date)}</Text>
+              </View>
+
+              <Text style={styles.ticketNumbersLabel}>Numbers</Text>
+              <NumbersPills numbers={drawNumbers} />
+
+              <Text style={styles.ticketMeta}>
+                Strong: {linkedDraw.strong_number ?? "—"}
+              </Text>
+            </View>
+          </>
+        )}
         <Text style={styles.sectionTitle}>Summary</Text>
 
         <View style={styles.metricsGrid}>
@@ -334,14 +423,18 @@ export default function BatchDetailsScreen() {
                     </Text>
                   </View>
 
-                  <Text style={styles.ticketNumbers}>
-                    Ticket:{" "}
-                    {renderNumbers(parseNumbersJson(ticket?.numbers_json))}
-                  </Text>
-                  <Text style={styles.ticketNumbers}>
-                    Matched:{" "}
-                    {renderNumbers(parseNumbersJson(result.matched_numbers_json))}
-                  </Text>
+                  <View style={styles.ticketNumbersBlock}>
+                    <Text style={styles.ticketNumbersLabel}>Ticket</Text>
+                    <NumbersPills
+                      numbers={parseNumbersJson(ticket?.numbers_json)}
+                      matchedSet={drawNumbers.length ? drawNumberSet : undefined}
+                    />
+                  </View>
+
+                  <View style={styles.ticketNumbersBlock}>
+                    <Text style={styles.ticketNumbersLabel}>Matched</Text>
+                    <NumbersPills numbers={parseNumbersJson(result.matched_numbers_json)} />
+                  </View>
                   <Text style={styles.ticketMeta}>
                     Match count: {result.match_count ?? 0}
                     {" · "}
@@ -381,16 +474,18 @@ export default function BatchDetailsScreen() {
                     </Text>
                   </View>
 
-                  <Text style={styles.ticketNumbers}>
-                    Ticket:{" "}
-                    {renderNumbers(parseNumbersJson(ticket?.numbers_json))}
-                  </Text>
+                  <View style={styles.ticketNumbersBlock}>
+                    <Text style={styles.ticketNumbersLabel}>Ticket</Text>
+                    <NumbersPills
+                      numbers={parseNumbersJson(ticket?.numbers_json)}
+                      matchedSet={drawNumbers.length ? drawNumberSet : undefined}
+                    />
+                  </View>
 
-                  <Text style={styles.ticketNumbers}>
-                    Matched:{" "}
-                    {renderNumbers(parseNumbersJson(result.matched_numbers_json))}
-                  </Text>
-
+                  <View style={styles.ticketNumbersBlock}>
+                    <Text style={styles.ticketNumbersLabel}>Matched</Text>
+                    <NumbersPills numbers={parseNumbersJson(result.matched_numbers_json)} />
+                  </View>
                   <Text style={styles.ticketMeta}>
                     Prize: ₪ {formatMoney(result.prize)}
                     {" · "}
@@ -407,6 +502,9 @@ export default function BatchDetailsScreen() {
         <Text style={styles.sectionTitle}>All tickets</Text>
 
         <View style={styles.infoCard}>
+          {drawNumbers.length > 0 && (
+            <Text style={styles.legendText}>Green = matched the draw</Text>
+          )}
           {tickets.length === 0 ? (
             <Text style={styles.emptyText}>No tickets found</Text>
           ) : (
@@ -424,10 +522,13 @@ export default function BatchDetailsScreen() {
                   </Text>
                 </View>
 
-                <Text style={styles.ticketNumbers}>
-                  Numbers: {renderNumbers(parseNumbersJson(ticket.numbers_json))}
-                </Text>
-
+                <View style={styles.ticketNumbersBlock}>
+                  <Text style={styles.ticketNumbersLabel}>Numbers</Text>
+                  <NumbersPills
+                    numbers={parseNumbersJson(ticket.numbers_json)}
+                    matchedSet={drawNumbers.length ? drawNumberSet : undefined}
+                  />
+                </View>
                 <Text style={styles.ticketMeta}>
                   Strong: {ticket.strong_number ?? "—"}
                 </Text>
@@ -597,5 +698,42 @@ const styles = StyleSheet.create({
   winBadge: {
     fontSize: 12,
     fontWeight: "700",
+  },
+  ticketNumbersBlock: {
+  marginBottom: 6,
+  },
+  ticketNumbersLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  numbersWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 6,
+  },
+  numberPill: {
+    minWidth: 36,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e5e7eb",
+    alignItems: "center",
+  },
+  numberPillMatched: {
+    backgroundColor: "#34C759",
+  },
+  numberPillText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  numberPillTextMatched: {
+    color: "#fff",
+  },
+  legendText: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 10,
   },
 });

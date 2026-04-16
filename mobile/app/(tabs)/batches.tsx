@@ -39,6 +39,34 @@ function getStatusStyle(status: string) {
   }
 }
 
+function parseNumbersJson(value?: string | null) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getDrawTitle(batch: any) {
+  const draw = batch?.linked_draw;
+  return draw?.pais_id ?? draw?.draw_id ?? batch?.target_pais_id ?? batch?.target_draw_id ?? null;
+}
+
+function getDrawNumbersText(batch: any) {
+  const draw = batch?.linked_draw;
+  const numbers = parseNumbersJson(draw?.numbers_json);
+  if (!numbers.length) return "";
+
+  const strongPart =
+    typeof draw?.strong_number === "number"
+      ? ` | Strong: ${draw.strong_number}`
+      : "";
+
+  return `${numbers.join(", ")}${strongPart}`;
+}
+
 export default function BatchesScreen() {
   const router = useRouter();
 
@@ -255,43 +283,60 @@ Created missing: ${summary.createdMissing ?? 0}`,
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Pressable
-              style={styles.cardContent}
-              onPress={() =>
-                router.push({
-                  pathname: "/batch/[id]",
-                  params: { id: String(item.id) },
-                })
-              }
-            >
-              <Text style={styles.title}>Batch #{item.id}</Text>
-              <Text style={styles.cardText}>Status: {getStatusLabel(item.status ?? "—")}</Text>
-              <Text style={styles.cardText}>Created: {item.createdAt || item.created_at || "—"}</Text>
-              <Text style={styles.ticketCountText}>
-                Tickets: {item.ticketCount || item.ticket_count || "?"}
-              </Text>
-            </Pressable>
-            {(item.status ?? "").toLowerCase() === "generated" && (
+        renderItem={({ item }) => {
+          const drawTitle = getDrawTitle(item);
+          const drawNumbersText = getDrawNumbersText(item);
+
+          return (
+            <View style={styles.card}>
               <Pressable
-                onPress={() => handleApplyToLotto(item.id)}
-                disabled={applyingBatchId === item.id}
-                style={[
-                  styles.applyButton,
-                  styles.applyButtonRight,
-                  applyingBatchId === item.id && styles.applyButtonDisabled,
-                ]}
+                style={styles.cardContent}
+                onPress={() =>
+                  router.push({
+                    pathname: "/batch/[id]",
+                    params: { id: String(item.id) },
+                  })
+                }
               >
-                {applyingBatchId === item.id ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.applyButtonText}>Apply</Text>
-                )}
+                <Text style={styles.title}>Batch #{item.id}</Text>
+                <Text style={styles.cardText}>Status: {getStatusLabel(item.status ?? "—")}</Text>
+                <Text style={styles.cardText}>Created: {item.createdAt || item.created_at || "—"}</Text>
+                <Text style={styles.ticketCountText}>
+                  Tickets: {item.ticketCount || item.ticket_count || "?"}
+                </Text>
+
+                {drawNumbersText ? (
+                  <>
+                    <Text style={styles.drawText}>
+                      Draw: {drawTitle ? `#${drawTitle}` : "—"}
+                    </Text>
+                    <Text style={styles.drawNumbersText}>
+                      Numbers: {drawNumbersText}
+                    </Text>
+                  </>
+                ) : null}
               </Pressable>
-            )}
-          </View>
-        )}
+
+              {(item.status ?? "").toLowerCase() === "generated" && (
+                <Pressable
+                  onPress={() => handleApplyToLotto(item.id)}
+                  disabled={applyingBatchId === item.id}
+                  style={[
+                    styles.applyButton,
+                    styles.applyButtonRight,
+                    applyingBatchId === item.id && styles.applyButtonDisabled,
+                  ]}
+                >
+                  {applyingBatchId === item.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.applyButtonText}>Apply</Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.centerBlock}>
             <Text>No batches found</Text>
@@ -452,6 +497,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  drawText: {
+  fontSize: 13,
+  fontWeight: "600",
+  marginTop: 8,
+  },
+  drawNumbersText: {
+    fontSize: 13,
+    color: "#444",
+    marginTop: 2,
   },
 });
 
