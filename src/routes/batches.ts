@@ -4,6 +4,8 @@ import {
   getBatchWithTicketsById,
   getLatestBatchWithTickets,
   getBatches,
+  attachLinkedDrawToBatch,
+  attachLinkedDrawToBatches,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -11,6 +13,7 @@ import {
   getLatestBatchSummary,
 } from "../services/resultService";
 import { getBatchById } from "../repositories/batchesRepo";
+
 
 function parseBatchIdFromPath(pathname: string, suffix?: string): number | null {
   const base = "/batches/";
@@ -52,20 +55,25 @@ export async function handleBatchesRoute(
     const status = statusParam || undefined;
 
     const batches = await getBatches(env.DB, { limit, status });
+    const enrichedBatches = await attachLinkedDrawToBatches(env.DB, batches);
 
     return jsonResponse({
       ok: true,
-      batches,
+      batches: enrichedBatches,
     });
   }
 
   if (pathname === "/batches/latest" && request.method === "GET") {
     const latest = await getLatestBatchWithTickets(env.DB);
+    const batchWithDraw = latest?.batch
+      ? await attachLinkedDrawToBatch(env.DB, latest.batch)
+      : null;
 
     return jsonResponse({
       ok: true,
-      batch: latest?.batch ?? null,
+      batch: batchWithDraw,
       tickets: latest?.tickets ?? [],
+      linkedDraw: batchWithDraw?.linked_draw ?? null,
     });
   }
 
@@ -80,10 +88,13 @@ export async function handleBatchesRoute(
       return notFoundResponse();
     }
 
+    const batchWithDraw = await attachLinkedDrawToBatch(env.DB, data.batch);
+
     return jsonResponse({
       ok: true,
-      batch: data.batch,
+      batch: batchWithDraw,
       tickets: data.tickets,
+      linkedDraw: batchWithDraw.linked_draw,
     });
   }
 
@@ -100,10 +111,13 @@ export async function handleBatchesRoute(
 
     const results = await getBatchResults(env.DB, batchId);
 
+    const batchWithDraw = await attachLinkedDrawToBatch(env.DB, batch);
+
     return jsonResponse({
       ok: true,
-      batch,
+      batch: batchWithDraw,
       results,
+      linkedDraw: batchWithDraw.linked_draw,
     });
   }
 
@@ -144,9 +158,12 @@ export async function handleBatchesRoute(
       return notFoundResponse();
     }
 
+    const batchWithDraw = await attachLinkedDrawToBatch(env.DB, batch);
+
     return jsonResponse({
       ok: true,
-      batch,
+      batch: batchWithDraw,
+      linkedDraw: batchWithDraw.linked_draw,
     });
   }
 

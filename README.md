@@ -189,13 +189,20 @@ Current mobile functionality includes:
 
 - health checks against the Worker
 - Lotto OTP login through Worker proxy routes
-- **Generate tickets** - Ticket generation via the main Worker proxy route (`/tickets/generate`) which forwards to the Python Worker engine. Configurable parameters include count (dropdown: 2, 4, 6, 8, 10, 12, 14), max common, seed, and cluster target. Generated batches are automatically saved to the database with open draw information from `/draws/open`.
+- **Generate tickets** - Ticket generation via the main Worker proxy route (`/tickets/generate`) which forwards to the Python Worker engine. Configurable parameters include count (dropdown: 2, 4, 6, 8, 10, 12, 14), max common, seed, and cluster target. Cluster target selection includes dynamic descriptions fetched from current weights (e.g., S3-heavy, balanced, low+S3 mix, high-heavy patterns). Generated batches are automatically saved to the database with open draw information from `/draws/open`.
 - **Update draws** - Fetches draws from Lotto Sheli API and imports them to the Worker DB. Shows the count of new draws added and total draws in the database.
 - **Recalculate weights** - Triggers weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. This provides full weight recalculation functionality without requiring the bridge CLI.
-- **Batches tab** - Displays batches grouped by status with counts. Each status section is pressable and navigates to a filtered view showing only batches with that status. Batches with "generated" status show an "Apply to Lotto" button on the right side of the card.
+- **Batches tab** - Displays batches with status filtering tabs (All, generated, submitted, confirmed, checked, archived, etc.). Each tab shows batches filtered by that status. Batches with "generated" status show an "Apply to Lotto" button on the right side of the card.
 - **Apply to Lotto** - For batches with "generated" status, allows applying the batch to Lotto Sheli. This triggers a multi-step flow: calculate price, check duplicate combinations, process payment, and mark the batch as "submitted" on success.
 - **Refresh Statuses** - Fetches all active tickets from Lotto Sheli API and syncs batch statuses. Matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app. Shows summary with remote tickets count, matched existing, confirmed existing, and created missing.
-- batch detail, summary, and result views
+- **Batch detail view** - Comprehensive batch information including:
+  - Batch metadata (ID, key, status, created/checked dates)
+  - Linked draw information with draw numbers and strong number
+  - Summary metrics (ticket count, checked results, 3+ hits, total prize)
+  - Results overview (winning tickets, prize winners, strong matches, best match count)
+  - Winning tickets section with matched numbers highlighted in green
+  - All results section showing match details for each ticket
+  - All tickets section with draw number matching visualization (green = matched)
 
 ## Python bridge CLI
 
@@ -468,23 +475,39 @@ This endpoint is used for generating batches targeting the next upcoming draw:
 
 #### `GET /weights/current`
 
-Returns the latest row where `is_current = 1`.
+Returns the latest row where `is_current = 1`. Used by the mobile app to fetch cluster descriptions for the generate tickets screen.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "weights": {
+    "id": 2,
+    "version_key": "2026-04-15T00:00:00.000Z",
+    "weights_json": "{\"segments\":{...},\"clustering\":{...}}",
+    "source_draw_count": 47,
+    "is_current": 1,
+    "created_at": "2026-04-15 00:00:00"
+  }
+}
+```
 
 #### `GET /batches/latest`
 
-Returns the latest batch and all of its tickets.
+Returns the latest batch and all of its tickets. Includes linked draw information if available.
 
 #### `GET /batches/{id}`
 
-Returns one batch by numeric id.
+Returns one batch by numeric id. Includes linked draw information if available.
 
 #### `GET /batches/{id}/tickets`
 
-Returns one batch and all of its tickets.
+Returns one batch and all of its tickets. Includes linked draw information if available.
 
 #### `GET /batches/{id}/results`
 
-Returns one batch and all imported result rows for its tickets.
+Returns one batch and all imported result rows for its tickets. Includes linked draw information if available.
 
 #### `GET /batches/latest/summary`
 
@@ -737,9 +760,9 @@ Returns the latest generated batch (status='generated') and its tickets.
 
 Query parameters:
 - `limit`: Maximum number of batches to return
-- `status`: Filter by batch status ('generated', 'checked', 'archived')
+- `status`: Filter by batch status ('generated', 'submitted', 'confirmed', 'checked', 'archived')
 
-Returns a list of batches matching the criteria.
+Returns a list of batches with linked draw information if available.
 
 #### `GET /admin/batches/{id}/tickets`
 
@@ -974,11 +997,11 @@ mobile/                   # Expo React Native mobile app
 │   ├── (tabs)/          # Tab-based navigation
 │   │   ├── info.tsx     # Info/home screen
 │   │   ├── login.tsx    # Lotto OTP login screen
-│   │   ├── generate.tsx # Generate tickets screen
-│   │   ├── batches.tsx  # Batches list screen (grouped by status)
+│   │   ├── generate.tsx # Generate tickets screen with cluster selection
+│   │   ├── batches.tsx  # Batches list screen with status filtering
 │   │   └── explore.tsx  # Explore screen
 │   ├── batch/           # Batch detail screens
-│   │   └── [id].tsx     # Batch detail by ID
+│   │   └── [id].tsx     # Batch detail with linked draw, results, and ticket matching
 │   ├── batches/         # Status-filtered batch views
 │   │   └── [status].tsx # Batches filtered by status
 │   ├── _layout.tsx      # Root layout
@@ -986,7 +1009,7 @@ mobile/                   # Expo React Native mobile app
 ├── components/           # Reusable components
 │   └── ui/              # UI components
 ├── services/            # API services
-│   ├── api.ts           # Worker API client
+│   ├── api.ts           # Worker API client with Lotto integration
 │   └── secureStorage.ts # Secure storage utilities
 ├── constants/           # App constants
 │   └── theme.ts         # Theme configuration
@@ -1011,3 +1034,6 @@ mobile/                   # Expo React Native mobile app
 - The main Worker reads current weights from the database (`weights` table where `is_current = 1`) and confirmed tickets from confirmed batches, then passes them to the Python Worker in the request body. The Python Worker applies these weights directly instead of relying on local `weights.json`. This ensures that weights recalculated via `/admin/recalculate-weights` are immediately used for ticket generation.
 - The Python Worker's `generator_engine.py` uses confirmed tickets from the database as history for avoiding duplicates and respecting max_common limits. If no confirmed tickets are provided, it falls back to loading draw history from JSONL format (`draw_history.jsonl`) using the `draw_history.load_history()` function, extracting the numbers field from each draw object.
 - The generator enriches the history with tickets generated in the current batch to ensure uniqueness within the batch. This means each newly generated ticket is added to the history pool for subsequent ticket generation in the same batch.
+- Batches now include linked draw information when available. The system attempts to resolve the linked draw through multiple strategies: by target_draw_id, by result draw_db_id, by target_pais_id, or by confirmed_pais_id. This enables batch detail views to show the actual draw numbers that tickets were matched against.
+- The mobile app's batch detail view visualizes ticket matching by highlighting numbers that matched the linked draw in green. This provides immediate visual feedback on which numbers were winning numbers.
+- The "Refresh Statuses" functionality creates missing batches for tickets purchased outside the app, ensuring the database stays synchronized with the Lotto Sheli account even when purchases are made through other channels.

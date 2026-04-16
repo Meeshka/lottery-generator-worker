@@ -28,6 +28,13 @@ import {
   type LottoTicketRecord,
 } from "../utils/lottoApi";
 import { fetchOpenPaisDraw } from "../utils/pais";
+import {
+  getDrawById,
+  getDrawByDrawId,
+  getDrawByPaisId,
+  type DrawRow,
+} from "../repositories/drawsRepo";
+
 
 export interface CreateBatchWithTicketsInput {
   targetDrawId?: string | null;
@@ -42,6 +49,83 @@ export interface CreateBatchWithTicketsInput {
 export interface BatchWithTickets {
   batch: BatchRow;
   tickets: TicketRow[];
+}
+
+export interface BatchWithLinkedDraw extends BatchRow {
+  linked_draw: DrawRow | null;
+}
+
+async function getResultDrawDbIdForBatch(
+  db: D1Database,
+  batchId: number,
+): Promise<number | null> {
+  const row = await db
+    .prepare(`
+      SELECT MAX(tr.draw_id) AS draw_db_id
+      FROM ticket_results tr
+      INNER JOIN tickets t ON t.id = tr.ticket_id
+      WHERE t.batch_id = ?
+    `)
+    .bind(batchId)
+    .first<{ draw_db_id: number | string | null }>();
+
+  if (row?.draw_db_id === null || row?.draw_db_id === undefined) {
+    return null;
+  }
+
+  return Number(row.draw_db_id);
+}
+
+export async function resolveLinkedDrawForBatch(
+  db: D1Database,
+  batch: BatchRow,
+): Promise<DrawRow | null> {
+  if (batch.target_draw_id) {
+    const byDrawId = await getDrawByDrawId(db, String(batch.target_draw_id));
+    if (byDrawId) return byDrawId;
+  }
+
+  const resultDrawDbId = await getResultDrawDbIdForBatch(db, batch.id);
+  if (resultDrawDbId) {
+    const byDbId = await getDrawById(db, resultDrawDbId);
+    if (byDbId) return byDbId;
+  }
+
+  if (batch.target_pais_id !== null && batch.target_pais_id !== undefined) {
+    const byPaisId = await getDrawByPaisId(db, Number(batch.target_pais_id));
+    if (byPaisId) return byPaisId;
+  }
+
+  if (batch.confirmed_pais_id !== null && batch.confirmed_pais_id !== undefined) {
+    const byConfirmedPaisId = await getDrawByPaisId(
+      db,
+      Number(batch.confirmed_pais_id),
+    );
+    if (byConfirmedPaisId) return byConfirmedPaisId;
+  }
+
+  return null;
+}
+
+export async function attachLinkedDrawToBatch(
+  db: D1Database,
+  batch: BatchRow,
+): Promise<BatchWithLinkedDraw> {
+  const linkedDraw = await resolveLinkedDrawForBatch(db, batch);
+
+  return {
+    ...batch,
+    linked_draw: linkedDraw,
+  };
+}
+
+export async function attachLinkedDrawToBatches(
+  db: D1Database,
+  batches: BatchRow[],
+): Promise<BatchWithLinkedDraw[]> {
+  return Promise.all(
+    batches.map((batch) => attachLinkedDrawToBatch(db, batch)),
+  );
 }
 
 export interface SyncConfirmationResult {
