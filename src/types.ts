@@ -1,8 +1,3 @@
-export interface Env {
-  DB: D1Database;
-  ADMIN_KEY: string;
-}
-
 export type BatchStatus =
   | "generated"
   | "submitted"
@@ -99,3 +94,4 @@ export interface Env {
   ADMIN_KEY: string;
   PY_ENGINE: Fetcher;
 }
+
