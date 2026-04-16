@@ -15,6 +15,7 @@ import {
   validateToken,
   recalculateWeights,
   importWeights,
+  checkMissingBatchResults,
 } from "../../services/api";
 import {
   getAccessToken,
@@ -30,6 +31,8 @@ export default function InfoScreen() {
   const [updateResult, setUpdateResult] = useState<string | null>(null);
   const [recalculatingWeights, setRecalculatingWeights] = useState(false);
   const [recalcResult, setRecalcResult] = useState<string | null>(null);
+  const [checkingMissingResults, setCheckingMissingResults] = useState(false);
+  const [checkMissingResult, setCheckMissingResult] = useState<string | null>(null);
 
   useEffect(() => {
     checkAllStates();
@@ -197,6 +200,44 @@ export default function InfoScreen() {
     }
   }
 
+  async function handleCheckMissingResults() {
+    const token = await getAccessToken();
+    if (!token) {
+      Alert.alert("Error", "No access token found. Please login first.");
+      return;
+    }
+
+    if (!tokenValid) {
+      Alert.alert("Error", "Token is invalid. Please login again.");
+      return;
+    }
+
+    setCheckingMissingResults(true);
+    setCheckMissingResult(null);
+
+    try {
+      const result = await checkMissingBatchResults(token);
+      const summary = result.summary || {};
+
+      const message =
+        `Scanned: ${summary.scanned ?? 0}\n` +
+        `Eligible: ${summary.eligible ?? 0}\n` +
+        `Checked now: ${summary.checkedNow ?? 0}\n` +
+        `Skipped (already has results): ${summary.skippedWithResults ?? 0}\n` +
+        `Skipped (draw not available): ${summary.skippedNoDraw ?? 0}\n` +
+        `Failed: ${summary.failed ?? 0}`;
+
+      setCheckMissingResult(message);
+      Alert.alert("Check Missing Results", message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setCheckMissingResult(`Error: ${message}`);
+      Alert.alert("Error", message);
+    } finally {
+      setCheckingMissingResults(false);
+    }
+  }
+
   function getLoginStateText() {
     switch (loginState) {
       case "checking":
@@ -295,6 +336,23 @@ export default function InfoScreen() {
           )}
         </Pressable>
 
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            styles.checkResultsButton,
+            pressed && styles.buttonPressed,
+            (!tokenValid || loginState !== "logged_in") && styles.buttonDisabled,
+          ]}
+          onPress={handleCheckMissingResults}
+          disabled={checkingMissingResults || !tokenValid || loginState !== "logged_in"}
+        >
+          {checkingMissingResults ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Check Missing Results</Text>
+          )}
+        </Pressable>
+
         {loginState === "logged_in" && (
           <Pressable
             style={({ pressed }) => [
@@ -319,6 +377,13 @@ export default function InfoScreen() {
           <View style={styles.resultCard}>
             <Text style={styles.resultLabel}>Recalculation Result</Text>
             <Text style={styles.resultText}>{recalcResult}</Text>
+          </View>
+        )}
+
+        {checkMissingResult && (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultLabel}>Check Missing Results</Text>
+            <Text style={styles.resultText}>{checkMissingResult}</Text>
           </View>
         )}
       </View>
@@ -395,6 +460,9 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     backgroundColor: "#FF3B30",
+  },
+  checkResultsButton: {
+    backgroundColor: "#FF9500",
   },
   buttonText: {
     color: "white",

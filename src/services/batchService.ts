@@ -22,6 +22,7 @@ import {
   deleteBatch,
 } from "../repositories/batchesRepo";
 import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo";
+import { getBatchResults, calculateAndImportBatchResults } from "../services/resultService";
 import {
   fetchAllActiveTickets,
   fetchActiveTickets,
@@ -30,6 +31,7 @@ import {
 } from "../utils/lottoApi";
 import { fetchOpenPaisDraw } from "../utils/pais";
 import {
+  getLatestDraw,
   getDrawById,
   getDrawByDrawId,
   getDrawByPaisId,
@@ -497,11 +499,26 @@ export interface RefreshBatchStatusesSummary {
   matchedExisting: number;
   confirmedExisting: number;
   createdMissing: number;
+  checkedNow: number;
 }
 
 export interface RefreshBatchStatusesResult {
   success: boolean;
   summary: RefreshBatchStatusesSummary;
+}
+
+export interface CheckMissingBatchResultsSummary {
+  scanned: number;
+  eligible: number;
+  checkedNow: number;
+  skippedWithResults: number;
+  skippedNoDraw: number;
+  failed: number;
+}
+
+export interface CheckMissingBatchResultsResult {
+  success: boolean;
+  summary: CheckMissingBatchResultsSummary;
 }
 
 function remoteTablesToTicketInputs(tables: number[][]): TicketInput[] {
@@ -543,6 +560,23 @@ function shouldRetargetGeneratedBatchToOpenDraw(
   }
 
   return Number(batch.target_pais_id) !== Number(currentOpenPaisId);
+}
+
+async function shouldAutoCheckBatchAgainstLatestDraw(
+  db: D1Database,
+  batch: BatchRow,
+  latestDraw: DrawRow,
+): Promise<boolean> {
+  if (batch.status !== "confirmed") {
+    return false;
+  }
+
+  const linkedDraw = await resolveLinkedDrawForBatch(db, batch);
+  if (!linkedDraw) {
+    return false;
+  }
+
+  return linkedDraw.id === latestDraw.id;
 }
 
 export async function refreshBatchStatusesFromLotto(
@@ -670,6 +704,39 @@ export async function refreshBatchStatusesFromLotto(
     createdMissing++;
   }
 
+  let checkedNow = 0;
+
+  const latestDraw = await getLatestDraw(db);
+
+  if (latestDraw) {
+    const confirmedBatches = await getBatchesRepo(db, { status: "confirmed" });
+
+    for (const batch of confirmedBatches) {
+      const shouldCheck = await shouldAutoCheckBatchAgainstLatestDraw(
+        db,
+        batch,
+        latestDraw,
+      );
+
+      if (!shouldCheck) {
+        continue;
+      }
+
+      try {
+        await calculateAndImportBatchResults(db, {
+          batchId: batch.id,
+          prizeTable: "regular",
+        });
+        checkedNow++;
+      } catch (error) {
+        console.error(
+          `[refresh-statuses] auto-check failed for batch ${batch.id}:`,
+          error,
+        );
+      }
+    }
+  }
+
   return {
     success: true,
     summary: {
@@ -678,6 +745,71 @@ export async function refreshBatchStatusesFromLotto(
       matchedExisting,
       confirmedExisting,
       createdMissing,
+      checkedNow,
+    },
+  };
+}
+
+export async function checkMissingBatchResults(
+  db: D1Database,
+): Promise<CheckMissingBatchResultsResult> {
+  const allBatches = await getBatchesRepo(db);
+
+  let scanned = 0;
+  let eligible = 0;
+  let checkedNow = 0;
+  let skippedWithResults = 0;
+  let skippedNoDraw = 0;
+  let failed = 0;
+
+  for (const batch of allBatches) {
+    const status = String(batch.status ?? "").toLowerCase();
+
+    if (status !== "confirmed" && status !== "archived") {
+      continue;
+    }
+
+    scanned++;
+
+    const existingResults = await getBatchResults(db, batch.id);
+    if (existingResults.length > 0) {
+      skippedWithResults++;
+      continue;
+    }
+
+    const linkedDraw = await resolveLinkedDrawForBatch(db, batch);
+    if (!linkedDraw) {
+      skippedNoDraw++;
+      continue;
+    }
+
+    eligible++;
+
+    try {
+      await calculateAndImportBatchResults(db, {
+        batchId: batch.id,
+        drawDbId: linkedDraw.id,
+        prizeTable: "regular",
+      });
+      checkedNow++;
+    } catch (error) {
+      failed++;
+      console.error(
+        `[check-missing-results] batch ${batch.id} failed:`,
+        error,
+      );
+    }
+  }
+
+  return {
+    success: true,
+    summary: {
+      scanned,
+      eligible,
+      checkedNow,
+      skippedWithResults,
+      skippedNoDraw,
+      failed,
     },
   };
 }

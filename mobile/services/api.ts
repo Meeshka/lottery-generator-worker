@@ -419,3 +419,52 @@ export async function deleteBatch(batchId: number) {
 
   return res.json();
 }
+
+export async function checkBatchResults(batchId: number, accessToken: string) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl(`/admin/batches/${batchId}/results/import`), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+    body: JSON.stringify({
+      auto: true,
+      prizeTable: "regular",
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to check batch results - ${text}`);
+  }
+
+  return res.json();
+}
+
+export async function checkMissingBatchResults(accessToken: string) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl("/admin/batches/check-missing-results"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to check missing batch results - ${text}`);
+  }
+
+  return res.json();
+}
