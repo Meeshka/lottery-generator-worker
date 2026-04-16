@@ -944,6 +944,7 @@ Response (success):
   "success": true,
   "summary": {
     "remoteTickets": 15,
+    "retargetedGenerated": 2,
     "matchedExisting": 5,
     "confirmedExisting": 3,
     "createdMissing": 10
@@ -954,14 +955,20 @@ Response (success):
 This endpoint:
 - Fetches the current open draw information from pais.co.il
 - Fetches all active tickets from Lotto Sheli API (paginated)
-- Matches remote tickets with local batches by comparing ticket tables
+- **Retargets generated batches**: For batches with status "generated" that have a different target_pais_id than the current open draw, updates their target draw information to the current open draw
+- Matches remote tickets with local batches by comparing ticket tables (only batches with "submitted" status are considered for matching)
 - For matched local batches with "submitted" status:
   - Updates target draw information (targetDrawId, targetPaisId, targetDrawAt, targetDrawSnapshotJson)
   - Marks the batch as "confirmed" with the external ticket ID
 - For remote tickets that don't match any local batch:
   - Creates a new batch with the ticket data
   - Marks the new batch as "submitted" and "confirmed"
-- Returns a summary of the sync operation
+- Returns a summary of the sync operation including:
+  - `remoteTickets`: Total number of active tickets from Lotto Sheli
+  - `retargetedGenerated`: Number of generated batches retargeted to the current open draw
+  - `matchedExisting`: Number of local batches that matched remote tickets
+  - `confirmedExisting`: Number of submitted batches that were confirmed
+  - `createdMissing`: Number of new batches created for tickets purchased outside the app
 
 The endpoint requires a valid Lotto Sheli access token and will fail if:
 - The access token is invalid or expired
