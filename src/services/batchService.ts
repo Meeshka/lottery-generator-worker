@@ -19,6 +19,7 @@ import {
   touchSyncAttempt,
   saveSyncError,
   updateBatchTargetDrawInfo,
+  deleteBatch,
 } from "../repositories/batchesRepo";
 import { getTicketsByBatchId, insertTickets } from "../repositories/ticketsRepo";
 import {
@@ -269,6 +270,13 @@ export async function archiveBatchById(
   batchId: number,
 ): Promise<void> {
   await archiveBatch(db, batchId);
+}
+
+export async function deleteBatchById(
+  db: D1Database,
+  batchId: number,
+): Promise<void> {
+  await deleteBatch(db, batchId);
 }
 
 export async function archiveCheckedBatch(

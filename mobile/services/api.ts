@@ -397,3 +397,25 @@ export async function archiveBatch(batchId: number) {
 
   return res.json();
 }
+
+export async function deleteBatch(batchId: number) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl(`/admin/batches/${batchId}`), {
+    method: "DELETE",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to delete batch - ${text}`);
+  }
+
+  return res.json();
+}

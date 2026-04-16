@@ -17,6 +17,7 @@ import {
   markBatchAsSubmitted,
   syncBatchConfirmation,
   refreshBatchStatusesFromLotto,
+  deleteBatchById,
 } from "../services/batchService";
 import {
   getBatchResults,
@@ -325,6 +326,25 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         batch,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (request.method === "DELETE") {
+    const batchId = parseBatchIdFromPath(pathname);
+    if (!batchId) {
+      return notFoundResponse();
+    }
+
+    try {
+      await deleteBatchById(env.DB, batchId);
+      return jsonResponse({
+        ok: true,
+        batchId,
       });
     } catch (error) {
       return badRequestResponse(

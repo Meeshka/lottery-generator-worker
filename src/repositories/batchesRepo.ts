@@ -235,7 +235,7 @@ export async function archiveBatch(
 
 export async function getBatches(
   db: D1Database,
-  options?: { limit?: number; status?: string },
+  options?: { limit?: number; status?: string; deleted?: boolean },
 ): Promise<BatchRow[]> {
   let query = `
     ${BASE_BATCH_SELECT}
@@ -248,7 +248,9 @@ export async function getBatches(
     conditions.push("status = ?");
     params.push(options.status);
   }
-
+  if (options?.deleted !== false) {
+    conditions.push("deleted_at IS NULL");
+  }
   if (conditions.length > 0) {
     query += " WHERE " + conditions.join(" AND ");
   }
@@ -314,4 +316,19 @@ export async function getBatchByExternalTicketId(
     .first<BatchRow>();
 
   return row ?? null;
+}
+
+export async function deleteBatch(
+    db: D1Database,
+    batchId: number
+):Promise<void>{
+  await db
+    .prepare(`
+      UPDATE ticket_batches
+      SET deleted_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    .bind(batchId)
+    .run();
+
 }

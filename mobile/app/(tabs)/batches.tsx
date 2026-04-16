@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getBatches, applyBatchToLotto, refreshBatchStatuses, archiveBatch } from "../../services/api";
+import { getBatches, applyBatchToLotto, refreshBatchStatuses, archiveBatch, deleteBatch } from "../../services/api";
 import { getAccessToken } from "../../services/secureStorage";
 
 function getStatusLabel(status: string) {
@@ -108,6 +108,7 @@ export default function BatchesScreen() {
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [applyingBatchId, setApplyingBatchId] = useState<number | null>(null);
   const [archiveBatchId, setArchiveBatchId] = useState<number | null>(null);
+  const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
   const [refreshingStatuses, setRefreshingStatuses] = useState(false);
 
   async function loadBatches() {
@@ -165,6 +166,46 @@ export default function BatchesScreen() {
               Alert.alert("Error", message);
             } finally {
               setArchiveBatchId(null);
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleDelete(batchId: number){
+    Alert.alert(
+      "Delete batch",
+      "Are you sure you want to delete this batch?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingBatchId(batchId);
+
+              const result = await deleteBatch(batchId);
+
+              Alert.alert(
+                "Success",
+                `Batch deleted successfully!`,
+                [
+                  {
+                    text: "OK",
+                    onPress: () => loadBatches(),
+                  },
+                ]
+              );
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              Alert.alert("Error", message);
+            } finally {
+              setDeletingBatchId(null);
             }
           },
         },
@@ -434,6 +475,24 @@ Created missing: ${summary.createdMissing ?? 0}`,
                   )}
                 </Pressable>
               )}
+              {(item.status ?? "").toLowerCase() === "generated" ||
+               (item.status ?? "").toLowerCase() === "archived" ? (
+                <Pressable
+                  onPress={() => handleDelete(item.id)}
+                  disabled={deletingBatchId === item.id}
+                  style={[
+                    styles.deleteButton,
+                    styles.applyButtonRight,
+                    deletingBatchId === item.id && styles.applyButtonDisabled,
+                  ]}
+                >
+                  {deletingBatchId === item.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.applyButtonText}>Delete</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </View>
           );
         }}
@@ -567,6 +626,13 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     backgroundColor: "#BDBDBD",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteButton: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#FF5252",
     alignItems: "center",
     justifyContent: "center",
   },
