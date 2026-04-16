@@ -454,7 +454,42 @@ export default function BatchDetailsScreen() {
           )}
           
           {results.length === 0 ? (
-            <Text style={styles.emptyText}>No results found</Text>
+            <>
+              <Text style={styles.emptyText}>No results found</Text>
+              {tickets.length > 0 && (
+                <>
+                  <Text style={styles.ticketNumbersLabel} style={{marginTop: 12, marginBottom: 6}}>
+                    Tickets
+                  </Text>
+                  {tickets.map((ticket, index) => (
+                    <View
+                      key={ticket.id ? String(ticket.id) : `ticket-${index}`}
+                      style={[
+                        styles.resultRow,
+                        index !== tickets.length - 1 && styles.ticketRowBorder,
+                      ]}
+                    >
+                      <View style={styles.ticketHeader}>
+                        <Text style={styles.ticketTitle}>
+                          Ticket #{ticket.ticket_index ?? index + 1}
+                        </Text>
+                      </View>
+
+                      <View style={styles.ticketNumbersBlock}>
+                        <Text style={styles.ticketNumbersLabel}>Numbers</Text>
+                        <NumbersPills
+                          numbers={parseNumbersJson(ticket.numbers_json)}
+                          matchedSet={drawNumbers.length ? drawNumberSet : undefined}
+                        />
+                      </View>
+                      <Text style={styles.ticketMeta}>
+                        Strong: {ticket.strong_number ?? "—"}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </>
           ) : (
             results.map((result, index) => {
               const ticket = result.ticket_id
