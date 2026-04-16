@@ -98,6 +98,18 @@ function getDrawNumbersText(batch: any) {
   return `${numbers.join(", ")}${strongPart}`;
 }
 
+function getDrawDateText(batch: any) {
+  const draw = batch?.linked_draw;
+  if (!draw?.draw_date) return null;
+  
+  try {
+    const date = new Date(draw.draw_date);
+    return date.toLocaleString();
+  } catch {
+    return draw.draw_date;
+  }
+}
+
 export default function BatchesScreen() {
   const router = useRouter();
 
@@ -410,6 +422,7 @@ Created missing: ${summary.createdMissing ?? 0}`,
         renderItem={({ item }) => {
           const drawTitle = getDrawTitle(item);
           const drawNumbersText = getDrawNumbersText(item);
+          const drawDateText = getDrawDateText(item);
 
           return (
             <View style={styles.card}>
@@ -437,6 +450,11 @@ Created missing: ${summary.createdMissing ?? 0}`,
                     <Text style={styles.drawNumbersText}>
                       Numbers: {drawNumbersText}
                     </Text>
+                    {drawDateText && (
+                      <Text style={styles.drawDateText}>
+                        Date: {drawDateText}
+                      </Text>
+                    )}
                   </>
                 ) : null}
               </Pressable>
@@ -679,6 +697,11 @@ const styles = StyleSheet.create({
   drawNumbersText: {
     fontSize: 13,
     color: "#444",
+    marginTop: 2,
+  },
+  drawDateText: {
+    fontSize: 12,
+    color: "#666",
     marginTop: 2,
   },
 });
