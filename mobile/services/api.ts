@@ -143,7 +143,20 @@ export async function validateOtp(idNumber: string, phoneNumber: string, otpCode
   };
 }
 
-export async function getMe(accessToken: string) {
+export interface MeResponse {
+  ok: boolean;
+  lottoUserId: string;
+  idNumber: string | null;
+  email: string | null;
+  phone: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  isAdmin: boolean;
+  iat: number | null;
+  exp: number | null;
+}
+
+export async function getMe(accessToken: string): Promise<MeResponse> {
   const res = await fetch(buildUrl("/auth/me"), {
     method: "GET",
     headers: {

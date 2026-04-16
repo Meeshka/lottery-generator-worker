@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getBatches, applyBatchToLotto, refreshBatchStatuses, archiveBatch, deleteBatch } from "../../services/api";
-import { getAccessToken } from "../../services/secureStorage";
+import { getAccessToken, getAuthProfile } from "../../services/secureStorage";
 
 function getStatusLabel(status: string) {
   return status.replaceAll("_", " ");
@@ -122,10 +122,15 @@ export default function BatchesScreen() {
   const [archiveBatchId, setArchiveBatchId] = useState<number | null>(null);
   const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
   const [refreshingStatuses, setRefreshingStatuses] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   async function loadBatches() {
     try {
       setError("");
+
+      const profile = await getAuthProfile();
+      setIsAdmin(!!profile?.isAdmin);
+
       const data = await getBatches(100);
       setBatches(data.batches || []);
     } catch (err) {
@@ -478,7 +483,7 @@ Checked now: ${summary.checkedNow ?? 0}`,
                   )}
                 </Pressable>
               )}
-              {(item.status ?? "").toLowerCase() === "checked" && (
+              {isAdmin && (item.status ?? "").toLowerCase() === "checked" && (
                 <Pressable
                   onPress={() => handleSaveToArchive(item.id)}
                   disabled={applyingBatchId === item.id}
@@ -495,8 +500,9 @@ Checked now: ${summary.checkedNow ?? 0}`,
                   )}
                 </Pressable>
               )}
-              {(item.status ?? "").toLowerCase() === "generated" ||
-               (item.status ?? "").toLowerCase() === "archived" ? (
+              {isAdmin &&
+                ((item.status ?? "").toLowerCase() === "generated" ||
+                  (item.status ?? "").toLowerCase() === "archived") ? (
                 <Pressable
                   onPress={() => handleDelete(item.id)}
                   disabled={deletingBatchId === item.id}

@@ -5,6 +5,20 @@ const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const ID_NUMBER_KEY = 'idNumber';
 const PHONE_NUMBER_KEY = 'phoneNumber';
+const AUTH_PROFILE_KEY = 'authProfile';
+
+export interface StoredAuthProfile {
+  lottoUserId: string;
+  idNumber: string | null;
+  email: string | null;
+  phone: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  isAdmin: boolean;
+  role: "admin" | "user";
+  iat: number | null;
+  exp: number | null;
+}
 
 export async function saveTokens(accessToken: string, refreshToken: string) {
   try {
@@ -40,6 +54,34 @@ export async function clearTokens() {
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
   } catch (error) {
     // console.error('Error clearing tokens:', error);
+    throw error;
+  }
+}
+
+export async function saveAuthProfile(profile: StoredAuthProfile) {
+  try {
+    await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(profile));
+  } catch (error) {
+    // console.error('Error saving auth profile:', error);
+    throw error;
+  }
+}
+
+export async function getAuthProfile(): Promise<StoredAuthProfile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_PROFILE_KEY);
+    return raw ? (JSON.parse(raw) as StoredAuthProfile) : null;
+  } catch (error) {
+    // console.error('Error getting auth profile:', error);
+    return null;
+  }
+}
+
+export async function clearAuthProfile() {
+  try {
+    await AsyncStorage.removeItem(AUTH_PROFILE_KEY);
+  } catch (error) {
+    // console.error('Error clearing auth profile:', error);
     throw error;
   }
 }
