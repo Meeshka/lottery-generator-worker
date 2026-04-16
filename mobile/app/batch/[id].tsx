@@ -458,7 +458,7 @@ export default function BatchDetailsScreen() {
               <Text style={styles.emptyText}>No results found</Text>
               {tickets.length > 0 && (
                 <>
-                  <Text style={styles.ticketNumbersLabel} style={{marginTop: 12, marginBottom: 6}}>
+                  <Text style={styles.ticketNumbersLabel}>
                     Tickets
                   </Text>
                   {tickets.map((ticket, index) => (

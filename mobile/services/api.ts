@@ -143,6 +143,24 @@ export async function validateOtp(idNumber: string, phoneNumber: string, otpCode
   };
 }
 
+export async function getMe(accessToken: string) {
+  const res = await fetch(buildUrl("/auth/me"), {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to get auth context - ${text}`);
+  }
+
+  return res.json();
+
+
 export async function generateTickets(options: {
   count?: number;
   maxCommon?: number;
@@ -468,3 +486,5 @@ export async function checkMissingBatchResults(accessToken: string) {
 
   return res.json();
 }
+
+

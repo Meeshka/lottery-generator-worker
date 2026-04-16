@@ -118,6 +118,18 @@ CREATE TABLE ticket_results (
 );
 ```
 
+### `app_user_roles`
+```sql
+CREATE TABLE app_user_roles (
+  lotto_user_id TEXT PRIMARY KEY,
+  role TEXT,
+  is_active INTEGER,
+  note TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+```
+
 ## Local development
 
 Install TypeScript dependencies:
@@ -571,6 +583,39 @@ Response:
   "refreshToken": "token"
 }
 ```
+
+#### `GET /auth/me`
+
+Returns the current authenticated user's information and admin status. Requires a valid Bearer token in the Authorization header.
+
+Request headers:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "lottoUserId": "123456789",
+  "idNumber": "123456789",
+  "email": "user@example.com",
+  "phone": "0501234567",
+  "firstName": "John",
+  "lastName": "Doe",
+  "isAdmin": true,
+  "iat": 1713270000,
+  "exp": 1713356400
+}
+```
+
+This endpoint:
+- Decodes the JWT token from the Authorization header
+- Extracts user information from the token payload
+- Checks the database (`app_user_roles` table) to determine if the user has admin role
+- Returns user details including the `isAdmin` flag based on database role lookup
 
 ### Admin endpoints
 
@@ -1102,7 +1147,8 @@ src/
 │   ├── drawsRepo.ts      # Draw queries
 │   ├── weightsRepo.ts    # Weight queries
 │   ├── ticketsRepo.ts    # Ticket CRUD
-│   └── resultsRepo.ts    # Result CRUD
+│   ├── resultsRepo.ts    # Result CRUD
+│   └── userRolesRepo.ts  # User role queries
 ├── domain/                # Domain logic
 │   └── validation/      # Ticket validation and prize calculation
 └── utils/                 # Utility functions
@@ -1110,6 +1156,7 @@ src/
     ├── lottoApi.ts       # External Lotto API client
     ├── lottoAuth.ts      # Lotto authentication utilities
     ├── pais.ts           # Pais.co.il API client
+    ├── requestAuth.ts    # JWT authentication and role checking
     └── response.ts       # Response helpers
 
 py-engine/                # Python Worker engine
@@ -1164,6 +1211,7 @@ mobile/                   # Expo React Native mobile app
 
 ## Notes
 
+- The authentication system uses JWT tokens from Lotto Sheli for user identification and database-based role checking for admin privileges. The `app_user_roles` table stores user roles, and the `isAdmin` flag is determined by querying this table rather than environment variables.
 - The scheduled Worker handler is still a placeholder and does not run any jobs yet.
 - Batch archiving is now exposed via the `/admin/batches/{id}/archive` endpoint.
 - Result imports always attach to the latest draw in the database.
