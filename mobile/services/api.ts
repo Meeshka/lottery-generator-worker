@@ -159,7 +159,7 @@ export async function getMe(accessToken: string) {
   }
 
   return res.json();
-
+}
 
 export async function generateTickets(options: {
   count?: number;
@@ -486,5 +486,3 @@ export async function checkMissingBatchResults(accessToken: string) {
 
   return res.json();
 }
-
-
