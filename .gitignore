@@ -140,3 +140,9 @@ vite.config.ts.timestamp-*
 
 # Python bridge
 bridge.py
+
+# Data files
+draw_history.jsonl
+weights.json
+py-engine/data/draw_history.jsonl
+py-engine/data/weights.json
