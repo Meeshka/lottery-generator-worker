@@ -485,6 +485,7 @@ export async function submitAndSyncBatchConfirmation(
 
 export interface RefreshBatchStatusesSummary {
   remoteTickets: number;
+  retargetedGenerated: number;
   matchedExisting: number;
   confirmedExisting: number;
   createdMissing: number;
@@ -517,6 +518,25 @@ function remoteTablesToTicketInputs(tables: number[][]): TicketInput[] {
   });
 }
 
+function shouldRetargetGeneratedBatchToOpenDraw(
+  batch: BatchRow,
+  currentOpenPaisId: number | null,
+): boolean {
+  if (batch.status !== "generated") {
+    return false;
+  }
+
+  if (currentOpenPaisId === null || currentOpenPaisId === undefined) {
+    return false;
+  }
+
+  if (batch.target_pais_id === null || batch.target_pais_id === undefined) {
+    return false;
+  }
+
+  return Number(batch.target_pais_id) !== Number(currentOpenPaisId);
+}
+
 export async function refreshBatchStatusesFromLotto(
   db: D1Database,
   otpToken: string,
@@ -534,6 +554,24 @@ export async function refreshBatchStatusesFromLotto(
   );
 
   const allBatches = await getBatchesRepo(db);
+
+  let retargetedGenerated = 0;
+
+  for (const batch of allBatches) {
+    if (!shouldRetargetGeneratedBatchToOpenDraw(batch, openDraw.paisId)) {
+      continue;
+    }
+
+    await updateBatchTargetDrawInfo(db, batch.id, {
+      targetDrawId: null,
+      targetPaisId: openDraw.paisId,
+      targetDrawAt: openDraw.drawAt,
+      targetDrawSnapshotJson,
+    });
+
+    retargetedGenerated++;
+  }
+
   const submittedBatches = await getBatchesRepo(db, { status: "submitted" });
   const localBatches = await Promise.all(
     submittedBatches.map(async (batch) => {
@@ -545,6 +583,7 @@ export async function refreshBatchStatusesFromLotto(
       };
     }),
   );
+
   const matchedRemoteIds = new Set<string>();
   let matchedExisting = 0;
   let confirmedExisting = 0;
@@ -556,7 +595,7 @@ export async function refreshBatchStatusesFromLotto(
       matchedRemoteIds.add(remote.id);
       continue;
     }
-    
+
     const matchedLocal = localBatches.find((local) =>
       local.tickets.length > 0 && ticketsMatch(local.tables, remote.tables),
     );
@@ -627,6 +666,7 @@ export async function refreshBatchStatusesFromLotto(
     success: true,
     summary: {
       remoteTickets: remoteTickets.length,
+      retargetedGenerated,
       matchedExisting,
       confirmedExisting,
       createdMissing,
