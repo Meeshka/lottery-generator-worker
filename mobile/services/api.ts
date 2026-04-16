@@ -375,3 +375,25 @@ export async function refreshBatchStatuses(accessToken: string) {
 
   return res.json();
 }
+
+export async function archiveBatch(batchId: number) {
+  if (!ADMIN_KEY) {
+    throw new Error("ADMIN_KEY not configured");
+  }
+
+  const res = await fetch(buildUrl(`/admin/batches/${batchId}/archive-checked`), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "x-admin-key": ADMIN_KEY,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to archive batch - ${text}`);
+  }
+
+  return res.json();
+}

@@ -271,6 +271,29 @@ export async function archiveBatchById(
   await archiveBatch(db, batchId);
 }
 
+export async function archiveCheckedBatch(
+  db: D1Database,
+  batchId: number,
+): Promise<BatchRow> {
+  const batch = await getBatchById(db, batchId);
+  if (!batch) {
+    throw new Error(`Batch ${batchId} not found`);
+  }
+
+  if (batch.status !== "checked") {
+    throw new Error(
+      `Batch ${batchId} has status '${batch.status}', can only archive batches with status 'checked'`,
+    );
+  }
+
+  await archiveBatch(db, batchId);
+  const updated = await getBatchById(db, batchId);
+  if (!updated) {
+    throw new Error(`Failed to retrieve batch ${batchId} after archiving`);
+  }
+  return updated;
+}
+
 export async function markBatchAsChecked(
   db: D1Database,
   batchId: number,

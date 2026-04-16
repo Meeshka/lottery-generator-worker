@@ -192,8 +192,9 @@ Current mobile functionality includes:
 - **Generate tickets** - Ticket generation via the main Worker proxy route (`/tickets/generate`) which forwards to the Python Worker engine. Configurable parameters include count (dropdown: 2, 4, 6, 8, 10, 12, 14), max common, seed, and cluster target. Cluster target selection includes dynamic descriptions fetched from current weights (e.g., S3-heavy, balanced, low+S3 mix, high-heavy patterns). Generated batches are automatically saved to the database with open draw information from `/draws/open`.
 - **Update draws** - Fetches draws from Lotto Sheli API and imports them to the Worker DB. Shows the count of new draws added and total draws in the database.
 - **Recalculate weights** - Triggers weight recalculation via the Python Worker engine. Fetches draws from Lotto API, recalculates weights with clustering analysis, and imports both draws and weights to the Worker DB. This provides full weight recalculation functionality without requiring the bridge CLI.
-- **Batches tab** - Displays batches with status filtering tabs (All, generated, submitted, confirmed, checked, archived, etc.). Each tab shows batches filtered by that status. Batches with "generated" status show an "Apply to Lotto" button on the right side of the card.
+- **Batches tab** - Displays batches with status filtering tabs (All, generated, submitted, confirmed, checked, archived, etc.). Each tab shows batches filtered by that status. Batches with "generated" status show an "Apply to Lotto" button on the right side of the card. Batches with "checked" status show an "Archive" button on the right side of the card.
 - **Apply to Lotto** - For batches with "generated" status, allows applying the batch to Lotto Sheli. This triggers a multi-step flow: calculate price, check duplicate combinations, process payment, and mark the batch as "submitted" on success.
+- **Archive** - For batches with "checked" status, allows archiving the batch. This calls the `/admin/batches/{id}/archive-checked` endpoint which validates the batch status is "checked" before changing it to "archived". The batch must be in "checked" status to be archived.
 - **Refresh Statuses** - Fetches all active tickets from Lotto Sheli API and syncs batch statuses. Matches local batches with remote tickets, confirms submitted batches, and creates missing batches for tickets purchased outside the app. Shows summary with remote tickets count, matched existing, confirmed existing, and created missing.
 - **Batch detail view** - Comprehensive batch information including:
   - Batch metadata (ID, key, status, created/checked dates)
@@ -808,6 +809,31 @@ Returns imported result rows for a batch.
 #### `POST /admin/batches/{id}/archive`
 
 Archives a batch by setting its status to 'archived' and recording the archive timestamp.
+
+#### `POST /admin/batches/{id}/archive-checked`
+
+Archives a batch by setting its status to 'archived' and recording the archive timestamp. This endpoint validates that the batch status is 'checked' before archiving.
+
+Response (success):
+
+```json
+{
+  "ok": true,
+  "batch": {
+    "id": 123,
+    "status": "archived",
+    "archived_at": "2026-04-16T12:00:00Z",
+    ...
+  }
+}
+```
+
+This endpoint:
+- Validates that the batch exists
+- Validates that the batch status is 'checked'
+- Throws an error if the batch is not in 'checked' status
+- Updates the batch status to 'archived' and records the archive timestamp
+- Returns the updated batch object
 
 #### `POST /admin/batches/{id}/mark-submitted`
 

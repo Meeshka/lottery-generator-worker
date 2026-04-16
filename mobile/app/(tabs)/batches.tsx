@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getBatches, applyBatchToLotto, refreshBatchStatuses } from "../../services/api";
+import { getBatches, applyBatchToLotto, refreshBatchStatuses, archiveBatch } from "../../services/api";
 import { getAccessToken } from "../../services/secureStorage";
 
 function getStatusLabel(status: string) {
@@ -107,6 +107,7 @@ export default function BatchesScreen() {
   const [error, setError] = useState("");
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [applyingBatchId, setApplyingBatchId] = useState<number | null>(null);
+  const [archiveBatchId, setArchiveBatchId] = useState<number | null>(null);
   const [refreshingStatuses, setRefreshingStatuses] = useState(false);
 
   async function loadBatches() {
@@ -130,6 +131,45 @@ export default function BatchesScreen() {
   function onRefresh() {
     setRefreshing(true);
     loadBatches();
+  }
+
+  async function handleSaveToArchive(batchId: number){
+    Alert.alert(
+      "Save to archive",
+      "Are you sure you want to move this batch to archived?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Archive",
+          onPress: async () => {
+            try {
+              setArchiveBatchId(batchId);
+
+              const result = await archiveBatch(batchId);
+
+              Alert.alert(
+                "Success",
+                `Batch archived successfully!`,
+                [
+                  {
+                    text: "OK",
+                    onPress: () => loadBatches(),
+                  },
+                ]
+              );
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              Alert.alert("Error", message);
+            } finally {
+              setArchiveBatchId(null);
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function handleApplyToLotto(batchId: number) {
@@ -373,7 +413,24 @@ Created missing: ${summary.createdMissing ?? 0}`,
                   {applyingBatchId === item.id ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.applyButtonText}>Apply</Text>
+                    <Text style={styles.applyButtonText}>Pay</Text>
+                  )}
+                </Pressable>
+              )}
+              {(item.status ?? "").toLowerCase() === "checked" && (
+                <Pressable
+                  onPress={() => handleSaveToArchive(item.id)}
+                  disabled={applyingBatchId === item.id}
+                  style={[
+                    styles.archiveButton,
+                    styles.applyButtonRight,
+                    applyingBatchId === item.id && styles.applyButtonDisabled,
+                  ]}
+                >
+                  {applyingBatchId === item.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.applyButtonText}>Archive</Text>
                   )}
                 </Pressable>
               )}
@@ -503,6 +560,13 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     backgroundColor: "#007AFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  archiveButton: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#BDBDBD",
     alignItems: "center",
     justifyContent: "center",
   },

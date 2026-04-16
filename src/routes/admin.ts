@@ -13,6 +13,7 @@ import {
   getLatestGeneratedBatchWithTickets,
   getBatches,
   archiveBatchById,
+  archiveCheckedBatch,
   markBatchAsSubmitted,
   syncBatchConfirmation,
   refreshBatchStatusesFromLotto,
@@ -305,6 +306,25 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         batchId,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname.endsWith("/archive-checked") && request.method === "POST") {
+    const batchId = parseBatchIdFromPath(pathname, "/archive-checked");
+    if (!batchId) {
+      return notFoundResponse();
+    }
+
+    try {
+      const batch = await archiveCheckedBatch(env.DB, batchId);
+      return jsonResponse({
+        ok: true,
+        batch,
       });
     } catch (error) {
       return badRequestResponse(
