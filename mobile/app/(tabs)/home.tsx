@@ -19,71 +19,54 @@ import {
   getAuthProfile,
 } from "../../services/secureStorage";
 
-export default function InfoScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const [loginState, setLoginState] = useState<"checking" | "logged_in" | "not_logged_in" | "invalid">("checking");
-  const [workerState, setWorkerState] = useState<"checking" | "healthy" | "unhealthy">("checking");
-  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [lottoAccountStatus, setLottoAccountStatus] = useState<"checking" | "connected" | "not_connected">("checking");
+  const [workerState, setWorkerState] = useState<"checking" | "healthy" | "unhealthy">("checking");
+  const [loginState, setLoginState] = useState<"checking" | "valid" | "invalid">("checking");
   const [latestDrawDate, setLatestDrawDate] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuthAndLoadStates();
+    checkAuthAndLoadData();
   }, []);
 
-  async function checkAuthAndLoadStates() {
+  async function checkAuthAndLoadData() {
     try {
       const token = await getAccessToken();
       if (!token || !validateToken(token)) {
         router.replace('/login');
         return;
       }
-      await checkAllStates();
+      await loadAllData();
     } catch (err) {
       console.error('Auth check failed:', err);
       router.replace('/login');
     }
   }
 
-  async function checkAllStates() {
+  async function loadAllData() {
     await Promise.all([
-      checkLoginState(),
+      checkUserProfile(),
       checkWorkerState(),
+      checkLoginState(),
       checkLatestDraw(),
     ]);
+    setLoading(false);
   }
 
-  async function checkLoginState() {
+  async function checkUserProfile() {
     try {
-      const token = await getAccessToken();
-      if (!token) {
-        setLoginState("not_logged_in");
-        setTokenValid(false);
-        setIsAdmin(false);
-        return;
-      }
-
-      setLoginState("logged_in");
-
-      const isValid = validateToken(token);
-      setTokenValid(isValid);
-
-      if (!isValid) {
-        setLoginState("invalid");
-        setIsAdmin(false);
-        return;
-      }
-
       const profile = await getAuthProfile();
       setIsAdmin(!!profile?.isAdmin);
       setUsername(profile?.firstName || profile?.email || "User");
+      setEmail(profile?.email || "");
       setLottoAccountStatus(profile?.lottoUserId ? "connected" : "not_connected");
-    } catch {
-      setLoginState("not_logged_in");
-      setTokenValid(false);
-      setIsAdmin(false);
+    } catch (err) {
+      console.error("Error loading user profile:", err);
     }
   }
 
@@ -93,6 +76,20 @@ export default function InfoScreen() {
       setWorkerState("healthy");
     } catch (err) {
       setWorkerState("unhealthy");
+    }
+  }
+
+  async function checkLoginState() {
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setLoginState("invalid");
+        return;
+      }
+      const isValid = validateToken(token);
+      setLoginState(isValid ? "valid" : "invalid");
+    } catch (err) {
+      setLoginState("invalid");
     }
   }
 
@@ -120,85 +117,40 @@ export default function InfoScreen() {
       case "healthy":
       case "valid":
       case "connected":
-      case "logged_in":
         return "#4CAF50";
       case "unhealthy":
       case "invalid":
       case "not_connected":
-      case "not_logged_in":
         return "#FF5252";
       default:
         return "#FF9500";
     }
   }
 
-  function getStatusText(state: string) {
-    switch (state) {
-      case "checking":
-        return "Checking...";
-      case "healthy":
-        return "Healthy";
-      case "unhealthy":
-        return "Unhealthy";
-      case "logged_in":
-        return "Logged in";
-      case "not_logged_in":
-        return "Not logged in";
-      case "invalid":
-        return "Invalid token";
-      case "connected":
-        return "Connected";
-      case "not_connected":
-        return "Not connected";
-      default:
-        return "Unknown";
-    }
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>System Info</Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.refreshButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={checkAllStates}
-          >
-            <Text style={styles.refreshButtonText}>Refresh</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.greeting}>Welcome back, {username}!</Text>
 
-        {/* Session Card */}
+        {/* User Summary Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Session</Text>
+          <Text style={styles.cardTitle}>User Summary</Text>
           <View style={styles.row}>
-            <Text style={styles.label}>Login State:</Text>
-            <View style={[
-              styles.badge,
-              { backgroundColor: getStatusColor(loginState) }
-            ]}>
-              <Text style={styles.badgeText}>{getStatusText(loginState)}</Text>
-            </View>
+            <Text style={styles.label}>Username:</Text>
+            <Text style={[styles.value, { writingDirection: 'auto' }]}>{username}</Text>
           </View>
-          {tokenValid !== null && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Token Validation:</Text>
-              <View style={[
-                styles.badge,
-                { backgroundColor: tokenValid ? "#4CAF50" : "#FF5252" }
-              ]}>
-                <Text style={styles.badgeText}>{tokenValid ? "Valid" : "Invalid"}</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* User Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>User</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Email:</Text>
+            <Text style={[styles.value, { writingDirection: 'auto' }]}>{email || "—"}</Text>
+          </View>
           <View style={styles.row}>
             <Text style={styles.label}>Role:</Text>
             <View style={[
@@ -207,10 +159,6 @@ export default function InfoScreen() {
             ]}>
               <Text style={styles.badgeText}>{isAdmin ? "Admin" : "User"}</Text>
             </View>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Username:</Text>
-            <Text style={[styles.value, { writingDirection: 'auto' }]}>{username}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Lotto Account:</Text>
@@ -225,22 +173,73 @@ export default function InfoScreen() {
           </View>
         </View>
 
-        {/* System Card */}
+        {/* System Summary Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>System</Text>
+          <Text style={styles.cardTitle}>System Summary</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Worker State:</Text>
             <View style={[
               styles.badge,
               { backgroundColor: getStatusColor(workerState) }
             ]}>
-              <Text style={styles.badgeText}>{getStatusText(workerState)}</Text>
+              <Text style={styles.badgeText}>
+                {workerState === "healthy" ? "Healthy" : "Unhealthy"}
+              </Text>
             </View>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>Latest Draw Date:</Text>
+            <Text style={styles.label}>Latest Draw:</Text>
             <Text style={styles.value}>{latestDrawDate || "Not available"}</Text>
           </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Login State:</Text>
+            <View style={[
+              styles.badge,
+              { backgroundColor: getStatusColor(loginState) }
+            ]}>
+              <Text style={styles.badgeText}>
+                {loginState === "valid" ? "Valid" : "Invalid"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
+          <Pressable
+            style={styles.actionCard}
+            onPress={() => router.push("/(tabs)/generate")}
+          >
+            <Text style={styles.actionIcon}>🎟️</Text>
+            <Text style={styles.actionTitle}>Generate Ticket</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.actionCard}
+            onPress={() => router.push("/(tabs)/batches")}
+          >
+            <Text style={styles.actionIcon}>📋</Text>
+            <Text style={styles.actionTitle}>My Batches</Text>
+          </Pressable>
+
+          {isAdmin && (
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => router.push("/(tabs)/admin")}
+            >
+              <Text style={styles.actionIcon}>⚙️</Text>
+              <Text style={styles.actionTitle}>Admin Actions</Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            style={styles.actionCard}
+            onPress={() => router.push("/(tabs)/info")}
+          >
+            <Text style={styles.actionIcon}>ℹ️</Text>
+            <Text style={styles.actionTitle}>System Info</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -252,33 +251,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   content: {
     padding: 16,
   },
-  title: {
+  greeting: {
     fontSize: 28,
     fontWeight: "700",
-    marginBottom: 16,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  refreshButton: {
-    padding: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#007AFF",
-  },
-  refreshButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  buttonPressed: {
-    opacity: 0.8,
+    marginBottom: 24,
+    color: "#333",
   },
   card: {
     backgroundColor: "#f8f9fa",
@@ -319,5 +304,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     textTransform: "uppercase",
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 16,
+    color: "#333",
+  },
+  actionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -8,
+  },
+  actionCard: {
+    width: "48%",
+    marginHorizontal: "1%",
+    backgroundColor: "#007AFF",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  actionIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+    textAlign: "center",
   },
 });

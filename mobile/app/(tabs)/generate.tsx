@@ -13,7 +13,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { generateTickets, createBatch, getOpenDraw, getCurrentWeights } from "../../services/api";
+import { useRouter } from "expo-router";
+import { generateTickets, createBatch, getOpenDraw, getCurrentWeights, validateToken } from "../../services/api";
+import { getAccessToken } from "../../services/secureStorage";
 
 type Ticket = {
   ticketIndex: number;
@@ -34,6 +36,7 @@ type GeneratedBatch = {
 };
 
 export default function GenerateTicketsScreen() {
+  const router = useRouter();
   const [count, setCount] = useState("10");
   const [maxCommon, setMaxCommon] = useState("3");
   const [seed, setSeed] = useState("");
@@ -54,8 +57,22 @@ export default function GenerateTicketsScreen() {
   const [descriptionsLoading, setDescriptionsLoading] = useState(true);
 
   useEffect(() => {
-    fetchClusterDescriptions();
+    checkAuthAndFetchClusters();
   }, []);
+
+  async function checkAuthAndFetchClusters() {
+    try {
+      const token = await getAccessToken();
+      if (!token || !validateToken(token)) {
+        router.replace('/login');
+        return;
+      }
+      await fetchClusterDescriptions();
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      router.replace('/login');
+    }
+  }
 
   async function fetchClusterDescriptions() {
     setDescriptionsLoading(true);
@@ -181,7 +198,7 @@ export default function GenerateTicketsScreen() {
       try {
         const openDraw = await getOpenDraw();
         const drawData = openDraw.draw;
-        
+
         if (drawData && drawData.LotteryNumber) {
           targetDrawId = null;
           targetPaisId = drawData.LotteryNumber ?? null;
@@ -192,7 +209,13 @@ export default function GenerateTicketsScreen() {
         // console.warn("Could not fetch open draw, creating batch without draw info:", drawErr);
       }
 
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        throw new Error("No access token found. Please login first.");
+      }
+
       const batchResponse = await createBatch({
+        accessToken,
         targetDrawId,
         targetPaisId,
         targetDrawAt,
@@ -237,57 +260,67 @@ export default function GenerateTicketsScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>Generate Tickets</Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Number of Tickets</Text>
-            <Pressable
-              style={styles.dropdown}
-              onPress={() => setShowCountDropdown(true)}
-            >
-              <Text style={styles.dropdownText}>
-                {count}
+          {/* Generation Settings Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Generation Settings</Text>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Number of Tickets</Text>
+              <Pressable
+                style={styles.dropdown}
+                onPress={() => setShowCountDropdown(true)}
+              >
+                <Text style={styles.dropdownText}>
+                  {count}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Max Common Numbers</Text>
+              <TextInput
+                style={styles.input}
+                value={maxCommon}
+                onChangeText={setMaxCommon}
+                placeholder="3"
+                keyboardType="number-pad"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Seed (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={seed}
+                onChangeText={setSeed}
+                placeholder="Optional random seed"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* Filters/Options Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Filters & Options</Text>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>
+                Cluster Target ({availableClusters.filter(c => c !== "-").join(", ")}, Optional)
               </Text>
-              <Text style={styles.dropdownArrow}>▼</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Max Common Numbers</Text>
-            <TextInput
-              style={styles.input}
-              value={maxCommon}
-              onChangeText={setMaxCommon}
-              placeholder="3"
-              keyboardType="number-pad"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Seed (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={seed}
-              onChangeText={setSeed}
-              placeholder="Optional random seed"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>
-              Cluster Target ({availableClusters.filter(c => c !== "-").join(", ")}, Optional)
-            </Text>
-            <Pressable
-              style={styles.dropdown}
-              onPress={() => setShowClusterDropdown(true)}
-            >
-              <Text style={styles.dropdownText}>
-                {clusterTarget || "Select cluster"}
-              </Text>
-              <Text style={styles.dropdownArrow}>▼</Text>
-            </Pressable>
-            {clusterTarget && (
-              <Text style={styles.description}>{clusterDescriptions[clusterTarget]}</Text>
-            )}
+              <Pressable
+                style={styles.dropdown}
+                onPress={() => setShowClusterDropdown(true)}
+              >
+                <Text style={styles.dropdownText}>
+                  {clusterTarget || "Select cluster"}
+                </Text>
+                <Text style={styles.dropdownArrow}>▼</Text>
+              </Pressable>
+              {clusterTarget && (
+                <Text style={styles.description}>{clusterDescriptions[clusterTarget]}</Text>
+              )}
+            </View>
           </View>
 
           <Modal
@@ -368,6 +401,7 @@ export default function GenerateTicketsScreen() {
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
+          {/* Main CTA */}
           <Pressable
             style={({ pressed }) => [
               styles.button,
@@ -383,8 +417,10 @@ export default function GenerateTicketsScreen() {
             )}
           </Pressable>
 
+          {/* Result Preview Card */}
           {batch && (
-            <View style={styles.batchCard}>
+            <View style={[styles.card, styles.resultCard]}>
+              <Text style={styles.cardTitle}>Result Preview</Text>
               <Pressable onPress={() => setShowBatchModal(true)}>
                 <Text style={styles.batchTitle}>Batch #{batch.id.slice(-8)}</Text>
                 <Text style={styles.batchMeta}>
@@ -475,7 +511,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 24,
+    padding: 16,
     paddingBottom: 40,
   },
   title: {
@@ -483,8 +519,22 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 24,
   },
+  card: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+    color: "#333",
+  },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -498,7 +548,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 14,
     fontSize: 16,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#fff",
   },
   dropdown: {
     flexDirection: "row",
@@ -508,7 +558,7 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderRadius: 8,
     padding: 14,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#fff",
   },
   dropdownText: {
     fontSize: 16,
@@ -570,7 +620,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     backgroundColor: "#007AFF",
-    marginBottom: 24,
+    marginBottom: 16,
     minHeight: 52,
     justifyContent: "center",
   },
@@ -581,6 +631,10 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  resultCard: {
+    borderColor: "#007AFF",
+    borderWidth: 2,
   },
   batchCard: {
     padding: 16,

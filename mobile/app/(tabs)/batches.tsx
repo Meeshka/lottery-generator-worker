@@ -11,32 +11,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getBatches, applyBatchToLotto, refreshBatchStatuses, archiveBatch, deleteBatch } from "../../services/api";
+import { getBatches, applyBatchToLotto, refreshBatchStatuses, archiveBatch, deleteBatch, validateToken } from "../../services/api";
 import { getAccessToken, getAuthProfile } from "../../services/secureStorage";
 
 function getStatusLabel(status: string) {
   return status.replaceAll("_", " ");
-}
-
-function getStatusStyle(status: string) {
-  switch (status.toLowerCase()) {
-    case "confirmed":
-    case "checked":
-    case "done":
-    case "completed":
-      return styles.statusGood;
-    case "pending":
-    case "new":
-    case "created":
-    case "generated":
-    case "submitted":
-      return styles.statusPending;
-    case "failed":
-    case "error":
-      return styles.statusBad;
-    default:
-      return styles.statusNeutral;
-  }
 }
 
 function getTabBackgroundColor(status: string) {
@@ -143,8 +122,22 @@ export default function BatchesScreen() {
   }
 
   useEffect(() => {
-    loadBatches();
+    checkAuthAndLoadBatches();
   }, []);
+
+  async function checkAuthAndLoadBatches() {
+    try {
+      const token = await getAccessToken();
+      if (!token || !validateToken(token)) {
+        router.replace('/login');
+        return;
+      }
+      await loadBatches();
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      router.replace('/login');
+    }
+  }
 
   function onRefresh() {
     setRefreshing(true);
@@ -381,40 +374,59 @@ Checked now: ${summary.checkedNow ?? 0}`,
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.tabsContainer}>
-        <Pressable
-          style={[
-            styles.tab,
-            selectedTab === "all" && { backgroundColor: getTabBackgroundColor("all") }
-          ]}
-          onPress={() => setSelectedTab("all")}
-        >
-          <Text style={[
-            styles.tabText,
-            selectedTab === "all" && { color: getTabTextColor("all") }
-          ]}>
-            All
-          </Text>
-        </Pressable>
-        {allStatuses.map((status) => (
+      {/* Filter Card */}
+      <View style={styles.filterCard}>
+        <Text style={styles.filterTitle}>Filter</Text>
+        <View style={styles.filterRow}>
           <Pressable
-            key={status}
             style={[
-              styles.tab,
-              selectedTab === status && { backgroundColor: getTabBackgroundColor(status) }
+              styles.filterChip,
+              selectedTab === "all" && styles.filterChipActive,
             ]}
-            onPress={() => setSelectedTab(status)}
+            onPress={() => setSelectedTab("all")}
           >
             <Text style={[
-              styles.tabText,
-              selectedTab === status && { color: getTabTextColor(status) }
+              styles.filterChipText,
+              selectedTab === "all" && styles.filterChipTextActive,
             ]}>
-              {getStatusLabel(status)}
+              All
             </Text>
           </Pressable>
-        ))}
+          {allStatuses.map((status) => (
+            <Pressable
+              key={status}
+              style={[
+                styles.filterChip,
+                selectedTab === status && { backgroundColor: getTabBackgroundColor(status) }
+              ]}
+              onPress={() => setSelectedTab(status)}
+            >
+              <Text style={[
+                styles.filterChipText,
+                selectedTab === status && { color: getTabTextColor(status) }
+              ]}>
+                {getStatusLabel(status)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {isAdmin && (
+          <View style={styles.adminFilterRow}>
+            <Text style={styles.adminFilterLabel}>Admin View:</Text>
+            <Pressable
+              style={[
+                styles.adminFilterChip,
+                selectedTab === "all" && styles.adminFilterChipActive,
+              ]}
+              onPress={() => setSelectedTab("all")}
+            >
+              <Text style={styles.adminFilterChipText}>All</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
+      {/* Refresh Action */}
       <View style={styles.actionsRow}>
         <Pressable
           onPress={handleRefreshStatuses}
@@ -454,89 +466,102 @@ Checked now: ${summary.checkedNow ?? 0}`,
                   })
                 }
               >
-                <Text style={styles.title}>Batch #{item.id}</Text>
-                <Text style={styles.cardText}>Status: {getStatusLabel(item.status ?? "—")}</Text>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.title}>Batch #{item.id}</Text>
+                  <View style={[
+                    styles.statusBadge,
+                    { backgroundColor: getTabBackgroundColor(item.status ?? "unknown") }
+                  ]}>
+                    <Text style={[
+                      styles.statusText,
+                      { color: getTabTextColor(item.status ?? "unknown") }
+                    ]}>
+                      {getStatusLabel(item.status ?? "—")}
+                    </Text>
+                  </View>
+                </View>
                 <Text style={styles.cardText}>Created: {item.createdAt || item.created_at || "—"}</Text>
                 <Text style={styles.ticketCountText}>
                   Tickets: {item.ticketCount || item.ticket_count || "?"}
                 </Text>
 
                 {drawNumbersText ? (
-                  <>
-                    <Text style={styles.drawText}>
+                  <View style={styles.drawInfo}>
+                    <Text style={[styles.drawText, { writingDirection: 'auto' }]}>
                       Draw: {drawTitle ? `#${drawTitle}` : "—"}
                     </Text>
-                    <Text style={styles.drawNumbersText}>
+                    <Text style={[styles.drawNumbersText, { writingDirection: 'auto' }]}>
                       Numbers: {drawNumbersText}
                     </Text>
                     {drawDateText && (
-                      <Text style={styles.drawDateText}>
+                      <Text style={[styles.drawDateText, { writingDirection: 'auto' }]}>
                         Date: {drawDateText}
                       </Text>
                     )}
-                  </>
+                  </View>
                 ) : null}
               </Pressable>
 
-              {(item.status ?? "").toLowerCase() === "generated" && (
-                <Pressable
-                  onPress={() => handleApplyToLotto(item.id)}
-                  disabled={applyingBatchId === item.id}
-                  style={[
-                    styles.applyButton,
-                    styles.applyButtonRight,
-                    applyingBatchId === item.id && styles.applyButtonDisabled,
-                  ]}
-                >
-                  {applyingBatchId === item.id ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.applyButtonText}>Pay</Text>
-                  )}
-                </Pressable>
-              )}
-              {isAdmin && (item.status ?? "").toLowerCase() === "checked" && (
-                <Pressable
-                  onPress={() => handleSaveToArchive(item.id)}
-                  disabled={applyingBatchId === item.id}
-                  style={[
-                    styles.archiveButton,
-                    styles.applyButtonRight,
-                    applyingBatchId === item.id && styles.applyButtonDisabled,
-                  ]}
-                >
-                  {applyingBatchId === item.id ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.applyButtonText}>Archive</Text>
-                  )}
-                </Pressable>
-              )}
-              {isAdmin &&
-                ((item.status ?? "").toLowerCase() === "generated" ||
-                  (item.status ?? "").toLowerCase() === "archived") ? (
-                <Pressable
-                  onPress={() => handleDelete(item.id)}
-                  disabled={deletingBatchId === item.id}
-                  style={[
-                    styles.deleteButton,
-                    styles.applyButtonRight,
-                    deletingBatchId === item.id && styles.applyButtonDisabled,
-                  ]}
-                >
-                  {deletingBatchId === item.id ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.applyButtonText}>Delete</Text>
-                  )}
-                </Pressable>
-              ) : null}
+              <View style={styles.cardActions}>
+                {(item.status ?? "").toLowerCase() === "generated" && (
+                  <Pressable
+                    onPress={() => handleApplyToLotto(item.id)}
+                    disabled={applyingBatchId === item.id}
+                    style={[
+                      styles.actionButton,
+                      applyingBatchId === item.id && styles.actionButtonDisabled,
+                    ]}
+                  >
+                    {applyingBatchId === item.id ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.actionButtonText}>Pay</Text>
+                    )}
+                  </Pressable>
+                )}
+                {isAdmin && (item.status ?? "").toLowerCase() === "checked" && (
+                  <Pressable
+                    onPress={() => handleSaveToArchive(item.id)}
+                    disabled={archiveBatchId === item.id}
+                    style={[
+                      styles.actionButton,
+                      styles.archiveButton,
+                      archiveBatchId === item.id && styles.actionButtonDisabled,
+                    ]}
+                  >
+                    {archiveBatchId === item.id ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.actionButtonText}>Archive</Text>
+                    )}
+                  </Pressable>
+                )}
+                {isAdmin &&
+                  ((item.status ?? "").toLowerCase() === "generated" ||
+                    (item.status ?? "").toLowerCase() === "archived") && (
+                  <Pressable
+                    onPress={() => handleDelete(item.id)}
+                    disabled={deletingBatchId === item.id}
+                    style={[
+                      styles.actionButton,
+                      styles.deleteButton,
+                      deletingBatchId === item.id && styles.actionButtonDisabled,
+                    ]}
+                  >
+                    {deletingBatchId === item.id ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.actionButtonText}>Delete</Text>
+                    )}
+                  </Pressable>
+                )}
+              </View>
             </View>
           );
         }}
         ListEmptyComponent={
           <View style={styles.centerBlock}>
-            <Text>No batches found</Text>
+            <Text style={styles.emptyText}>No batches found</Text>
           </View>
         }
       />
@@ -548,6 +573,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    backgroundColor: "#fff",
   },
   center: {
     flex: 1,
@@ -558,135 +584,73 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
   },
-  tabsContainer: {
-    flexDirection: "row",
-    marginBottom: 16,
-    gap: 8,
-  },
-  tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#e8e8e8",
-  },
-  tabActive: {
-    backgroundColor: "#007AFF",
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
-  tabTextActive: {
-    color: "#fff",
-  },
-  card: {
-    flexDirection: "row",
-    padding: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    backgroundColor: "#f3f3f3",
-    alignItems: "center",
-  },
-  cardContent: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  cardText: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  statusSection: {
-    marginBottom: 16,
-  },
-  statusHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  statusGood: {
-    backgroundColor: "#dff7e6",
-  },
-  statusPending: {
-    backgroundColor: "#fff3d6",
-  },
-  statusBad: {
-    backgroundColor: "#fde2e2",
-  },
-  statusNeutral: {
-    backgroundColor: "#e8e8e8",
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  countText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
-  },
-  viewMoreButton: {
-    padding: 12,
-    alignItems: "center",
-    backgroundColor: "#e8e8e8",
-    borderRadius: 8,
-  },
-  viewMoreText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#007AFF",
-  },
-  ticketCountText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#007AFF",
-    marginTop: 4,
-  },
-  applyButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: "#007AFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  archiveButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: "#BDBDBD",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: "#FF5252",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  applyButtonRight: {
-    marginLeft: 12,
-  },
-  applyButtonDisabled: {
-    backgroundColor: "#999",
-  },
-  applyButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
   error: {
     color: "red",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  filterCard: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    color: "#333",
+  },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#e0e0e0",
+  },
+  filterChipActive: {
+    backgroundColor: "#007AFF",
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+  },
+  filterChipTextActive: {
+    color: "#fff",
+  },
+  adminFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    gap: 8,
+  },
+  adminFilterLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
+  adminFilterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#e0e0e0",
+  },
+  adminFilterChipActive: {
+    backgroundColor: "#9C27B0",
+  },
+  adminFilterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
   },
   actionsRow: {
     flexDirection: "row",
@@ -709,20 +673,97 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  card: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  cardContent: {
+    marginBottom: 12,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+  },
+  cardText: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  ticketCountText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#007AFF",
+    marginTop: 4,
+  },
+  drawInfo: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+  },
   drawText: {
-  fontSize: 13,
-  fontWeight: "600",
-  marginTop: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 2,
   },
   drawNumbersText: {
     fontSize: 13,
     color: "#444",
-    marginTop: 2,
+    marginBottom: 2,
   },
   drawDateText: {
     fontSize: 12,
     color: "#666",
-    marginTop: 2,
+  },
+  cardActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  actionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#007AFF",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 70,
+  },
+  actionButtonDisabled: {
+    backgroundColor: "#999",
+  },
+  archiveButton: {
+    backgroundColor: "#BDBDBD",
+  },
+  deleteButton: {
+    backgroundColor: "#FF5252",
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 
