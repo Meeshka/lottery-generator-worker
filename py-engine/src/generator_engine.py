@@ -219,9 +219,9 @@ def generate_tickets(
                 continue
 
             # 4) Evaluate candidate with combined score
-            # When cluster targeting: use higher cluster_weight (5.0) to prioritize cluster proximity
+            # When cluster targeting: use higher cluster_weight (3.0) to prioritize cluster proximity
             # while still considering reuse and segment penalties
-            cluster_w = 5.0 if target_centroid is not None else 2.0
+            cluster_w = 3.0 if target_centroid is not None else 2.0
             score = score_candidate(
                 nums=nums,
                 num_usage=batch_num_usage,
@@ -237,10 +237,10 @@ def generate_tickets(
                 if score < best_score:
                     best_score = score
                     best_candidate = (nums, ctrl)
-                    # Also track distance for early exit if very close
+                    # Also track distance for early exit if close enough (within 1.5)
                     dist = lg.get_segment_distribution(list(nums))
                     distance = lg.distribution_distance(dist, target_centroid)
-                    if distance <= 1.0:
+                    if distance <= 1.5:
                         break
             else:
                 # No cluster target - use score-based selection
