@@ -7,6 +7,7 @@ Wraps lottery_generator functionality for ticket generation.
 
 import random
 from typing import List, Dict, Any, Optional
+from collections import Counter
 
 try:
     from . import lottery_generator as lg
@@ -81,6 +82,67 @@ def _normalize_history_tickets(
     return result
 
 
+def _segment_index(n: int) -> int:
+    if 1 <= n <= 9:
+        return 0
+    if 10 <= n <= 19:
+        return 1
+    if 20 <= n <= 29:
+        return 2
+    return 3  # 30..37
+
+
+def score_candidate(
+    nums: tuple,
+    num_usage: Counter,
+    seg_usage: list,
+    target_centroid=None,
+    reuse_weight: float = 4.0,
+    segment_weight: float = 0.35,
+    cluster_weight: float = 2.0,
+) -> float:
+    """
+    Чем меньше score, тем лучше кандидат.
+
+    num_usage:
+        сколько раз каждое число уже использовалось в ТЕКУЩЕМ генерируемом батче
+    seg_usage:
+        сколько чисел по сегментам уже накоплено в ТЕКУЩЕМ батче
+    target_centroid:
+        если есть cluster_target, мягко учитываем близость к нему
+    """
+
+    # 1) главный штраф: повторное использование тех же чисел в текущем батче
+    # квадрат даёт сильный penalty для "залипших" чисел вроде 3, 10, 15 и т.п.
+    reuse_penalty = sum((num_usage[n] + 1) ** 2 - 1 for n in nums)
+
+    # 2) мягкий штраф за дальнейшую концентрацию сегментов
+    # считаем, как изменится "нагруженность" сегментов после добавления кандидата
+    candidate_seg_counts = [0, 0, 0, 0]
+    for n in nums:
+        candidate_seg_counts[_segment_index(n)] += 1
+
+    segment_penalty = 0.0
+    for seg_idx, add_count in enumerate(candidate_seg_counts):
+        if add_count == 0:
+            continue
+        before = seg_usage[seg_idx]
+        after = before + add_count
+        segment_penalty += (after * after) - (before * before)
+
+    # 3) мягкий штраф за удаление от target cluster
+    cluster_penalty = 0.0
+    if target_centroid is not None:
+        dist = lg.get_segment_distribution(list(nums))
+        cluster_penalty = lg.distribution_distance(dist, target_centroid)
+
+    return (
+        reuse_weight * reuse_penalty
+        + segment_weight * segment_penalty
+        + cluster_weight * cluster_penalty
+    )
+
+
 def generate_tickets(
     count: int,
     max_common: int,
@@ -130,50 +192,70 @@ def generate_tickets(
     final_nums_only = []
     history_set = set(history_tickets)
 
-    max_attempts_per_ticket = 2000
+    # usage считаем только по билетам, принятым В ТЕКУЩЕМ вызове generate_tickets()
+    batch_num_usage = Counter()
+    batch_seg_usage = [0, 0, 0, 0]
+
+    MAX_ATTEMPTS_PER_TICKET = 2000
+    CANDIDATE_POOL_SIZE = 64
 
     for i in range(count):
-        best_candidate = None
-        best_distance = float("inf")
+        candidate_pool = []
 
-        for _ in range(max_attempts_per_ticket):
+        for _ in range(MAX_ATTEMPTS_PER_TICKET):
             nums, ctrl, _batch = lg.build_final_ticket(rng, show_batch=False)
 
+            # 1) точный дубль в текущем ответе
             if nums in seen_final:
                 continue
 
+            # 2) точный дубль в истории / уже существующих билетах
             if nums in history_set:
                 continue
 
-            # max_common now compares against:
-            # 1) confirmed history tickets from DB
-            # 2) already generated tickets in current batch
+            # 3) ограничение по пересечениям
             pool = final_nums_only + history_tickets
             if lg.max_intersection(nums, pool) > max_common:
                 continue
 
-            if target_centroid is not None:
-                dist = lg.get_segment_distribution(list(nums))
-                distance = lg.distribution_distance(dist, target_centroid)
-                if distance < best_distance:
-                    best_distance = distance
-                    best_candidate = (nums, ctrl)
-                if distance <= 1.0:
-                    break
-            else:
-                best_candidate = (nums, ctrl)
+            # 4) оцениваем кандидата не "первый подошёл", а через score
+            score = score_candidate(
+                nums=nums,
+                num_usage=batch_num_usage,
+                seg_usage=batch_seg_usage,
+                target_centroid=target_centroid,
+                reuse_weight=4.0,
+                segment_weight=0.35,
+                cluster_weight=2.0,
+            )
+
+            candidate_pool.append((score, nums, ctrl))
+
+            # набрали достаточно валидных кандидатов — можно выбирать лучший
+            if len(candidate_pool) >= CANDIDATE_POOL_SIZE:
                 break
 
-        if best_candidate is None:
+        if not candidate_pool:
             raise RuntimeError("Failed to generate unique ticket within attempt limit")
 
-        nums, ctrl = best_candidate
+        # берём лучший score; tie-break -> лексикографически меньший nums, потом меньший ctrl
+        candidate_pool.sort(key=lambda item: (item[0], item[1], item[2]))
+        best_score, nums, ctrl = candidate_pool[0]
+
         seen_final.add(nums)
         final_nums_only.append(nums)
 
-        # Important: enrich history with tickets already generated in this batch
+        # важно: чтобы следующие билеты учитывали уже принятые текущие
         history_tickets.append(nums)
         history_set.add(nums)
+
+        # обновляем usage только после фактического выбора билета
+        for n in nums:
+            batch_num_usage[n] += 1
+
+        seg_dist = lg.get_segment_distribution(list(nums))
+        for seg_idx, cnt in enumerate(seg_dist):
+            batch_seg_usage[seg_idx] += cnt
 
         results.append({
             "ticketIndex": i + 1,
