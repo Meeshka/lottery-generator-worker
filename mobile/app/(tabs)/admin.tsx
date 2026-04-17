@@ -24,6 +24,7 @@ import {
 export default function AdminActionsScreen() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [updatingDraws, setUpdatingDraws] = useState(false);
   const [recalculatingWeights, setRecalculatingWeights] = useState(false);
@@ -37,13 +38,14 @@ export default function AdminActionsScreen() {
     try {
       const token = await getAccessToken();
       if (!token || !validateToken(token)) {
-        router.replace('/login');
+        setIsAuthenticated(false);
         return;
       }
+      setIsAuthenticated(true);
       await checkAuth();
     } catch (err) {
       console.error('Auth check failed:', err);
-      router.replace('/login');
+      setIsAuthenticated(false);
     }
   }
 
@@ -207,10 +209,19 @@ export default function AdminActionsScreen() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Text style={styles.errorText}>Please login</Text>
+        <Text style={styles.subText}>Authentication required</Text>
+      </SafeAreaView>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={styles.errorText}>Access Denied</Text>
+        <Text style={styles.errorText}>Access denied</Text>
         <Text style={styles.subText}>Admin access required</Text>
       </SafeAreaView>
     );

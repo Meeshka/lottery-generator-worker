@@ -30,22 +30,8 @@ export default function InfoScreen() {
   const [latestDrawDate, setLatestDrawDate] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuthAndLoadStates();
+    checkAllStates();
   }, []);
-
-  async function checkAuthAndLoadStates() {
-    try {
-      const token = await getAccessToken();
-      if (!token || !validateToken(token)) {
-        router.replace('/login');
-        return;
-      }
-      await checkAllStates();
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      router.replace('/login');
-    }
-  }
 
   async function checkAllStates() {
     await Promise.all([

@@ -102,10 +102,14 @@ export default function BatchesScreen() {
   const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
   const [refreshingStatuses, setRefreshingStatuses] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   async function loadBatches() {
     try {
       setError("");
+
+      const token = await getAccessToken();
+      setIsAuthenticated(!!token && validateToken(token));
 
       const profile = await getAuthProfile();
       setIsAdmin(!!profile?.isAdmin);
@@ -122,22 +126,8 @@ export default function BatchesScreen() {
   }
 
   useEffect(() => {
-    checkAuthAndLoadBatches();
+    loadBatches();
   }, []);
-
-  async function checkAuthAndLoadBatches() {
-    try {
-      const token = await getAccessToken();
-      if (!token || !validateToken(token)) {
-        router.replace('/login');
-        return;
-      }
-      await loadBatches();
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      router.replace('/login');
-    }
-  }
 
   function onRefresh() {
     setRefreshing(true);
@@ -297,6 +287,7 @@ export default function BatchesScreen() {
         "Refresh complete",
         `Remote tickets: ${summary.remoteTickets ?? 0}
 Retargeted generated: ${summary.retargetedGenerated ?? 0}
+Retargeted confirmed: ${summary.retargetedConfirmed ?? 0}
 Matched existing: ${summary.matchedExisting ?? 0}
 Confirmed existing: ${summary.confirmedExisting ?? 0}
 Created missing: ${summary.createdMissing ?? 0}
@@ -427,22 +418,24 @@ Checked now: ${summary.checkedNow ?? 0}`,
       </View>
 
       {/* Refresh Action */}
-      <View style={styles.actionsRow}>
-        <Pressable
-          onPress={handleRefreshStatuses}
-          disabled={refreshingStatuses}
-          style={[
-            styles.refreshButton,
-            refreshingStatuses && styles.refreshButtonDisabled,
-          ]}
-        >
-          {refreshingStatuses ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.refreshButtonText}>Refresh Statuses</Text>
-          )}
-        </Pressable>
-      </View>
+      {isAuthenticated && (
+        <View style={styles.actionsRow}>
+          <Pressable
+            onPress={handleRefreshStatuses}
+            disabled={refreshingStatuses}
+            style={[
+              styles.refreshButton,
+              refreshingStatuses && styles.refreshButtonDisabled,
+            ]}
+          >
+            {refreshingStatuses ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.refreshButtonText}>Refresh Statuses</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
 
       <FlatList
         data={filteredBatches}
@@ -503,7 +496,7 @@ Checked now: ${summary.checkedNow ?? 0}`,
               </Pressable>
 
               <View style={styles.cardActions}>
-                {(item.status ?? "").toLowerCase() === "generated" && (
+                {isAuthenticated && (item.status ?? "").toLowerCase() === "generated" && (
                   <Pressable
                     onPress={() => handleApplyToLotto(item.id)}
                     disabled={applyingBatchId === item.id}

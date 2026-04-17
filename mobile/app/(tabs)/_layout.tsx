@@ -10,6 +10,7 @@ function CustomDrawerContent(props: any) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,17 +20,23 @@ function CustomDrawerContent(props: any) {
   async function loadUserProfile() {
     try {
       const token = await getAccessToken();
+
       if (!token || !validateToken(token)) {
-        router.replace('/login');
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+        setUsername('Guest');
         return;
       }
 
       const profile = await getAuthProfile();
+      setIsAuthenticated(true);
       setIsAdmin(!!profile?.isAdmin);
       setUsername(profile?.firstName || profile?.email || 'User');
     } catch (err) {
       console.error('Error loading user profile:', err);
-      router.replace('/login');
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setUsername('Guest');
     } finally {
       setLoading(false);
     }
@@ -66,19 +73,18 @@ function CustomDrawerContent(props: any) {
 
       <DrawerContentScrollView {...props}>
         <DrawerItemList {...props} />
-        
-        {isAdmin && (
-          <DrawerItem
-            label="Admin Actions"
-            onPress={() => props.navigation.navigate('admin')}
-          />
-        )}
       </DrawerContentScrollView>
 
       <View style={styles.drawerFooter}>
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </Pressable>
+        {isAuthenticated ? (
+          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </Pressable>
+        ) : (
+          <Pressable style={styles.loginButton} onPress={() => router.push('/login')}>
+            <Text style={styles.loginButtonText}>Login</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -176,6 +182,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loginButton: {
+    backgroundColor: '#34C759',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loginButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
