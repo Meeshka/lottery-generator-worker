@@ -215,6 +215,7 @@ export async function generateTickets(options: {
 }
 
 export async function createBatch(options: {
+  accessToken: string;
   targetDrawId?: string | null;
   targetPaisId: number | null;
   targetDrawAt?: string | null;
@@ -227,16 +228,12 @@ export async function createBatch(options: {
     strong: number;
   }>;
 }) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
-  const res = await fetch(buildUrl("/admin/batches/create"), {
+  const res = await fetch(buildUrl("/batches/create"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${options.accessToken}`,
     },
     body: JSON.stringify({
       targetDrawId: options.targetDrawId,
@@ -357,21 +354,14 @@ export async function importWeights(weightsJson: string, sourceDrawCount: number
 }
 
 export async function applyBatchToLotto(batchId: number, accessToken: string) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
-  const res = await fetch(buildUrl("/admin/batches/apply-to-lotto"), {
+  const res = await fetch(buildUrl(`/batches/${batchId}/apply-to-lotto`), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      batchId,
-      accessToken,
-    }),
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
@@ -383,20 +373,14 @@ export async function applyBatchToLotto(batchId: number, accessToken: string) {
 }
 
 export async function refreshBatchStatuses(accessToken: string) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
-  const res = await fetch(buildUrl("/admin/batches/refresh-statuses"), {
+  const res = await fetch(buildUrl("/batches/refresh-statuses"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      accessToken,
-    }),
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
