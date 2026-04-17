@@ -61,7 +61,7 @@ function parseNumbersJson(value?: string | null) {
 
 function getDrawTitle(batch: any) {
   const draw = batch?.linked_draw;
-  return draw?.pais_id ?? draw?.draw_id ?? batch?.target_pais_id ?? batch?.target_draw_id ?? null;
+  return batch?.target_pais_id ?? batch?.targetPaisId ?? batch?.target_draw_id ?? batch?.targetDrawId ?? draw?.pais_id ?? draw?.draw_id ?? null;
 }
 
 function getDrawNumbersText(batch: any) {
@@ -79,14 +79,37 @@ function getDrawNumbersText(batch: any) {
 
 function getDrawDateText(batch: any) {
   const draw = batch?.linked_draw;
-  if (!draw?.draw_date) return null;
+  const batchDate = batch?.target_draw_at ?? batch?.targetDrawAt;
   
-  try {
-    const date = new Date(draw.draw_date);
-    return date.toLocaleString();
-  } catch {
-    return draw.draw_date;
+  // Try batch date first
+  if (batchDate) {
+    try {
+      const date = new Date(batchDate);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleString();
+      }
+    } catch {
+      // Fall through - return raw string if parsing fails
+    }
+    // Return raw string if we couldn't parse it
+    return batchDate;
   }
+  
+  // Fall back to linked draw date
+  const drawDate = draw?.draw_date;
+  if (drawDate) {
+    try {
+      const date = new Date(drawDate);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleString();
+      }
+    } catch {
+      return drawDate;
+    }
+    return drawDate;
+  }
+  
+  return null;
 }
 
 export default function BatchesScreen() {
@@ -478,14 +501,16 @@ Checked now: ${summary.checkedNow ?? 0}`,
                   Tickets: {item.ticketCount || item.ticket_count || "?"}
                 </Text>
 
-                {drawNumbersText ? (
+                {(drawTitle || drawDateText) ? (
                   <View style={styles.drawInfo}>
                     <Text style={[styles.drawText, { writingDirection: 'auto' }]}>
                       Draw: {drawTitle ? `#${drawTitle}` : "—"}
                     </Text>
-                    <Text style={[styles.drawNumbersText, { writingDirection: 'auto' }]}>
-                      Numbers: {drawNumbersText}
-                    </Text>
+                    {drawNumbersText && (
+                      <Text style={[styles.drawNumbersText, { writingDirection: 'auto' }]}>
+                        Numbers: {drawNumbersText}
+                      </Text>
+                    )}
                     {drawDateText && (
                       <Text style={[styles.drawDateText, { writingDirection: 'auto' }]}>
                         Date: {drawDateText}
