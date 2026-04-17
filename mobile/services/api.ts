@@ -260,8 +260,9 @@ export async function updateDraws(accessToken: string) {
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ accessToken }),
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
@@ -314,8 +315,9 @@ export async function recalculateWeights(accessToken: string) {
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({ accessToken }),
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {

@@ -7,6 +7,7 @@ import { countDraws } from "./repositories/drawsRepo";
 import { getCurrentWeights } from "./repositories/weightsRepo";
 import { jsonResponse, notFoundResponse } from "./utils/response";
 import { fetchOpenPaisDraw } from "./utils/pais";
+import { requireAdminContext } from "./utils/routeGuards";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -89,6 +90,11 @@ export default {
     }
 
     if (url.pathname === "/admin/recalculate-weights" && request.method === "POST") {
+      const admin = await requireAdminContext(request, env);
+      if (!admin.ok) {
+        return admin.response;
+      }
+
       try {
         // Fetch all draws from database
         const draws = await env.DB
@@ -99,7 +105,6 @@ export default {
           `)
           .all();
 
-        // Call Python Worker to recalculate weights with draw history via service binding
         const pythonRequest = new Request("https://py-engine/recalculate-weights", {
           method: "POST",
           headers: {
@@ -127,7 +132,6 @@ export default {
           }, 500);
         }
 
-        // Import the recalculated weights to Worker DB
         const weightsJson = JSON.stringify(pythonData.weights);
         const sourceDrawCount = pythonData.weights.n_draws_used;
 
@@ -142,8 +146,8 @@ export default {
             },
             body: JSON.stringify({
               versionKey: new Date().toISOString(),
-              weightsJson: weightsJson,
-              sourceDrawCount: sourceDrawCount,
+              weightsJson,
+              sourceDrawCount,
             }),
           }
         );
@@ -151,7 +155,6 @@ export default {
         const importWeightsResponse = await handleAdminRoute(importWeightsRequest, env);
         const importWeightsData = await importWeightsResponse.json();
 
-        // Also import draws to Worker DB
         const importDraws = pythonData.weights.draw_history?.map((draw: any) => ({
           drawId: String(draw.id),
           drawDate: draw.endsAt,
@@ -184,7 +187,7 @@ export default {
           message: "Weights recalculated and imported successfully",
           weights: pythonData.weights,
           importedDraws: importDraws.length,
-          totalDraws: totalDraws,
+          totalDraws,
         });
       } catch (error) {
         console.error("[recalculate-weights] Error:", error);
@@ -196,23 +199,14 @@ export default {
     }
 
     if (url.pathname === "/admin/update-draws" && request.method === "POST") {
+      const admin = await requireAdminContext(request, env);
+      if (!admin.ok) {
+        return admin.response;
+      }
+
       try {
-        //console.log("[update-draws] Starting update-draws request");
-        const body = await request.json() as { accessToken?: string };
-        const accessToken = body.accessToken;
+        const accessToken = admin.ctx.accessToken;
 
-        //console.log("[update-draws] AccessToken present:", !!accessToken);
-        //console.log("[update-draws] AccessToken length:", accessToken?.length);
-
-        if (!accessToken) {
-          return jsonResponse({
-            ok: false,
-            error: "accessToken is required",
-          }, 400);
-        }
-
-        // Fetch draws from Lotto API using the access token
-        //console.log("[update-draws] Fetching from Lotto API");
         const lottoResponse = await fetch("https://api.lottosheli.com/api/v1/client/draws/DRAW_LOTTO?type=null", {
           method: "GET",
           headers: {
@@ -224,11 +218,8 @@ export default {
           },
         });
 
-        //console.log("[update-draws] Lotto API response status:", lottoResponse.status);
-
         if (!lottoResponse.ok) {
           const errorText = await lottoResponse.text();
-          console.log("[update-draws] Lotto API error:", errorText);
           return jsonResponse({
             ok: false,
             error: `Failed to fetch draws from Lotto API: HTTP ${lottoResponse.status} - ${errorText}`,
@@ -236,8 +227,7 @@ export default {
         }
 
         const drawsData = await lottoResponse.json();
-        //console.log("[update-draws] Draws data received, count:", Array.isArray(drawsData) ? drawsData.length : "not an array");
-        
+
         if (!Array.isArray(drawsData)) {
           return jsonResponse({
             ok: false,
@@ -245,7 +235,6 @@ export default {
           }, 500);
         }
 
-        // Transform to match ImportDrawsRequestBody format
         const importDraws = drawsData.map((draw: any) => {
           const results = draw.results || {};
           return {
@@ -258,9 +247,6 @@ export default {
           };
         });
 
-        //console.log("[update-draws] Transformed draws for import, count:", importDraws.length);
-
-        // Use existing admin import/draws endpoint
         const { handleAdminRoute } = await import("./routes/admin");
         const importRequest = new Request(
           new URL("/admin/import/draws", url),
@@ -274,21 +260,15 @@ export default {
           }
         );
 
-        //console.log("[update-draws] Calling admin/import/draws with ADMIN_KEY:", !!env.ADMIN_KEY);
-
         const importResponse = await handleAdminRoute(importRequest, env);
         const importData = await importResponse.json();
 
-        //console.log("[update-draws] Import response:", importData);
-
-        // Get actual total count from database
         const totalDraws = await countDraws(env.DB);
 
-        // Return the response with the field names the mobile app expects
         return jsonResponse({
           ok: importData.ok,
           importedCount: importData.count,
-          totalDraws: totalDraws,
+          totalDraws,
         });
       } catch (error) {
         console.error("[update-draws] Error:", error);
