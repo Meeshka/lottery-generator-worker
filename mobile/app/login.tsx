@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { generateOtp, validateOtp, healthCheck, validateToken, getMe } from "../../services/api";
+import { generateOtp, validateOtp, healthCheck, validateToken, getMe } from "../services/api";
 import {
   saveTokens,
   saveUserCredentials,
@@ -21,7 +21,7 @@ import {
   getAccessToken,
   clearTokens,
   clearAuthProfile,
-} from "../../services/secureStorage";
+} from "../services/secureStorage";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -60,6 +60,11 @@ export default function LoginScreen() {
       // Validate token by checking JWT expiration
       const isValid = validateToken(token);
       setIsLoggedIn(isValid);
+      
+      // If already logged in, redirect to home
+      if (isValid) {
+        router.replace("/(tabs)/home");
+      }
     } catch (err) {
       // console.error("Error checking login status:", err);
       setIsLoggedIn(false);
@@ -136,7 +141,7 @@ export default function LoginScreen() {
       Alert.alert("Success", "Login successful!");
       setOtpCode("");
       setIsLoggedIn(true);
-      router.push("/(tabs)/info");
+      router.replace("/(tabs)/home");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
