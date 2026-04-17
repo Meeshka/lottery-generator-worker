@@ -166,7 +166,13 @@ export default function BatchesScreen() {
             try {
               setArchiveBatchId(batchId);
 
-              const result = await archiveBatch(batchId);
+              const accessToken = await getAccessToken();
+              if (!accessToken) {
+                Alert.alert("Error", "Please log in first");
+                return;
+              }
+
+              const result = await archiveBatch(batchId, accessToken);
 
               Alert.alert(
                 "Success",
@@ -206,7 +212,13 @@ export default function BatchesScreen() {
             try {
               setDeletingBatchId(batchId);
 
-              const result = await deleteBatch(batchId);
+              const accessToken = await getAccessToken();
+              if (!accessToken) {
+                Alert.alert("Error", "Please log in first");
+                return;
+              }
+
+              const result = await deleteBatch(batchId, accessToken);
 
               Alert.alert(
                 "Success",

@@ -6,8 +6,6 @@ const PYTHON_ENGINE_BASE =
   process.env.EXPO_PUBLIC_PYTHON_ENGINE_BASE ??
   "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
 
-const ADMIN_KEY = process.env.EXPO_PUBLIC_ADMIN_KEY;
-
 function buildUrl(path: string) {
   return `${API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
@@ -328,22 +326,22 @@ export async function recalculateWeights(accessToken: string) {
   return res.json();
 }
 
-export async function importWeights(weightsJson: string, sourceDrawCount: number) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
+export async function importWeights(
+  weightsJson: string,
+  sourceDrawCount: number,
+  accessToken: string,
+) {
   const res = await fetch(buildUrl("/admin/import/weights"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
       versionKey: new Date().toISOString(),
-      weightsJson: weightsJson,
-      sourceDrawCount: sourceDrawCount,
+      weightsJson,
+      sourceDrawCount,
     }),
   });
 
@@ -393,18 +391,15 @@ export async function refreshBatchStatuses(accessToken: string) {
   return res.json();
 }
 
-export async function archiveBatch(batchId: number) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
+export async function archiveBatch(batchId: number, accessToken: string) {
   const res = await fetch(buildUrl(`/admin/batches/${batchId}/archive-checked`), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
+    body: JSON.stringify({}),
   });
 
   if (!res.ok) {
@@ -415,17 +410,13 @@ export async function archiveBatch(batchId: number) {
   return res.json();
 }
 
-export async function deleteBatch(batchId: number) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
+export async function deleteBatch(batchId: number, accessToken: string) {
   const res = await fetch(buildUrl(`/admin/batches/${batchId}`), {
     method: "DELETE",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
   });
 
@@ -438,16 +429,12 @@ export async function deleteBatch(batchId: number) {
 }
 
 export async function checkBatchResults(batchId: number, accessToken: string) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
   const res = await fetch(buildUrl(`/admin/batches/${batchId}/results/import`), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
       auto: true,
@@ -464,16 +451,12 @@ export async function checkBatchResults(batchId: number, accessToken: string) {
 }
 
 export async function checkMissingBatchResults(accessToken: string) {
-  if (!ADMIN_KEY) {
-    throw new Error("ADMIN_KEY not configured");
-  }
-
   const res = await fetch(buildUrl("/admin/batches/check-missing-results"), {
     method: "POST",
     headers: {
       "Accept": "application/json",
       "Content-Type": "application/json",
-      "x-admin-key": ADMIN_KEY,
+      "Authorization": `Bearer ${accessToken}`,
     },
     body: JSON.stringify({}),
   });
