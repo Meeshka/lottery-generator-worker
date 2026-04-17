@@ -197,10 +197,10 @@ def generate_tickets(
     batch_seg_usage = [0, 0, 0, 0]
 
     MAX_ATTEMPTS_PER_TICKET = 2000
-    CANDIDATE_POOL_SIZE = 64
 
     for i in range(count):
-        candidate_pool = []
+        best_candidate = None
+        best_score = float('inf')
 
         for _ in range(MAX_ATTEMPTS_PER_TICKET):
             nums, ctrl, _batch = lg.build_final_ticket(rng, show_batch=False)
@@ -218,7 +218,10 @@ def generate_tickets(
             if lg.max_intersection(nums, pool) > max_common:
                 continue
 
-            # 4) оцениваем кандидата не "первый подошёл", а через score
+            # 4) Evaluate candidate with combined score
+            # When cluster targeting: use higher cluster_weight (5.0) to prioritize cluster proximity
+            # while still considering reuse and segment penalties
+            cluster_w = 5.0 if target_centroid is not None else 2.0
             score = score_candidate(
                 nums=nums,
                 num_usage=batch_num_usage,
@@ -226,21 +229,31 @@ def generate_tickets(
                 target_centroid=target_centroid,
                 reuse_weight=4.0,
                 segment_weight=0.35,
-                cluster_weight=2.0,
+                cluster_weight=cluster_w,
             )
 
-            candidate_pool.append((score, nums, ctrl))
-
-            # набрали достаточно валидных кандидатов — можно выбирать лучший
-            if len(candidate_pool) >= CANDIDATE_POOL_SIZE:
+            if target_centroid is not None:
+                # Cluster targeting: track best combined score
+                if score < best_score:
+                    best_score = score
+                    best_candidate = (nums, ctrl)
+                    # Also track distance for early exit if very close
+                    dist = lg.get_segment_distribution(list(nums))
+                    distance = lg.distribution_distance(dist, target_centroid)
+                    if distance <= 1.0:
+                        break
+            else:
+                # No cluster target - use score-based selection
+                if score < best_score:
+                    best_score = score
+                    best_candidate = (nums, ctrl)
+                # Accept first valid candidate when no cluster target
                 break
 
-        if not candidate_pool:
+        if best_candidate is None:
             raise RuntimeError("Failed to generate unique ticket within attempt limit")
 
-        # берём лучший score; tie-break -> лексикографически меньший nums, потом меньший ctrl
-        candidate_pool.sort(key=lambda item: (item[0], item[1], item[2]))
-        best_score, nums, ctrl = candidate_pool[0]
+        nums, ctrl = best_candidate
 
         seen_final.add(nums)
         final_nums_only.append(nums)
