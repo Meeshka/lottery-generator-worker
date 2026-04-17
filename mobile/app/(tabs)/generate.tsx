@@ -57,22 +57,8 @@ export default function GenerateTicketsScreen() {
   const [descriptionsLoading, setDescriptionsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuthAndFetchClusters();
+    fetchClusterDescriptions();
   }, []);
-
-  async function checkAuthAndFetchClusters() {
-    try {
-      const token = await getAccessToken();
-      if (!token || !validateToken(token)) {
-        router.replace('/login');
-        return;
-      }
-      await fetchClusterDescriptions();
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      router.replace('/login');
-    }
-  }
 
   async function fetchClusterDescriptions() {
     setDescriptionsLoading(true);

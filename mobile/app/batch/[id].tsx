@@ -298,7 +298,7 @@ export default function BatchDetailsScreen() {
             Checked: {formatDate(summary?.checkedAt)}
           </Text>
         </View>
-        {linkedDraw && drawNumbers.length > 0 && (
+        {linkedDraw && (
           <>
             <Text style={styles.sectionTitle}>Linked draw</Text>
 
@@ -315,12 +315,16 @@ export default function BatchDetailsScreen() {
                 <Text style={styles.infoValue}>{formatDate(linkedDraw.draw_date)}</Text>
               </View>
 
-              <Text style={styles.ticketNumbersLabel}>Numbers</Text>
-              <NumbersPills numbers={drawNumbers} />
+              {drawNumbers.length > 0 && (
+                <>
+                  <Text style={styles.ticketNumbersLabel}>Numbers</Text>
+                  <NumbersPills numbers={drawNumbers} />
 
-              <Text style={styles.ticketMeta}>
-                Strong: {linkedDraw.strong_number ?? "—"}
-              </Text>
+                  <Text style={styles.ticketMeta}>
+                    Strong: {linkedDraw.strong_number ?? "—"}
+                  </Text>
+                </>
+              )}
             </View>
           </>
         )}

@@ -31,22 +31,8 @@ export default function HomeScreen() {
   const [latestDrawDate, setLatestDrawDate] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuthAndLoadData();
+    loadAllData();
   }, []);
-
-  async function checkAuthAndLoadData() {
-    try {
-      const token = await getAccessToken();
-      if (!token || !validateToken(token)) {
-        router.replace('/login');
-        return;
-      }
-      await loadAllData();
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      router.replace('/login');
-    }
-  }
 
   async function loadAllData() {
     await Promise.all([
@@ -62,11 +48,12 @@ export default function HomeScreen() {
     try {
       const profile = await getAuthProfile();
       setIsAdmin(!!profile?.isAdmin);
-      setUsername(profile?.firstName || profile?.email || "User");
+      setUsername(profile?.firstName || profile?.email || "Guest");
       setEmail(profile?.email || "");
       setLottoAccountStatus(profile?.lottoUserId ? "connected" : "not_connected");
     } catch (err) {
       console.error("Error loading user profile:", err);
+      setUsername("Guest");
     }
   }
 
