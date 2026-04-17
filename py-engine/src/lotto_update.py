@@ -12,9 +12,11 @@ import os
 import time
 from typing import Any, Dict, List
 
-import lotto_api
-import draw_history
-import weights
+try:
+    from . import draw_history, weights
+except ImportError:
+    import draw_history
+    import weights
 
 
 def _load_json(path: str) -> Dict[str, Any]:
@@ -63,6 +65,11 @@ def fetch_draws_from_api(
     Returns the number of new draws added.
     Requires auth.json with idNumber and phoneNumber.
     """
+    try:
+        from . import lotto_api
+    except ImportError:
+        import lotto_api
+
     auth = _load_json(auth_path)
     token_obj = _load_json(token_path)
 
