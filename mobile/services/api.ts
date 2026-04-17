@@ -159,6 +159,7 @@ export async function getMe(accessToken: string) {
   }
 
   return res.json();
+}
 
 
 export async function generateTickets(options: {
