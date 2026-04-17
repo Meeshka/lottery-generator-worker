@@ -4,19 +4,15 @@ import {
   badRequestResponse,
   jsonResponse,
   notFoundResponse,
-  unauthorizedResponse,
 } from "../utils/response";
+import { requireAdminContext } from "../utils/routeGuards";
 import {
-  createBatchWithTickets,
   getBatchWithTicketsById,
   getLatestBatchWithTickets,
   getLatestGeneratedBatchWithTickets,
   getBatches,
   archiveBatchById,
   archiveCheckedBatch,
-  markBatchAsSubmitted,
-  syncBatchConfirmation,
-  refreshBatchStatusesFromLotto,
   deleteBatchById,
   checkMissingBatchResults,
 } from "../services/batchService";
@@ -27,17 +23,6 @@ import {
 } from "../services/resultService";
 import { upsertDraw, getDrawByDrawId } from "../repositories/drawsRepo";
 import { insertWeights } from "../repositories/weightsRepo";
-import { generateOtp, validateOtp, LottoAuthError } from "../utils/lottoAuth";
-
-interface CreateBatchRequestBody {
-  targetDrawId?: string | null;
-  targetPaisId?: number | null;
-  targetDrawAt?: string | null;
-  targetDrawSnapshotJson?: string | null;
-  generatorVersion?: string | null;
-  weightsVersionKey?: string | null;
-  tickets: TicketInput[];
-}
 
 interface ImportResultsRequestBody {
   drawId?: string | null;
@@ -56,34 +41,6 @@ interface ImportWeightsRequestBody {
   sourceDrawCount: number | null;
 }
 
-interface SyncConfirmationRequestBody {
-  token: string;
-}
-
-interface GenerateOtpRequestBody {
-  idNumber: string;
-  phoneNumber: string;
-}
-
-interface ValidateOtpRequestBody {
-  idNumber: string;
-  phoneNumber: string;
-  otpCode: string;
-}
-
-interface ApplyToLottoRequestBody {
-  batchId: number;
-  accessToken: string;
-}
-
-interface RefreshBatchStatusesRequestBody {
-  accessToken: string;
-}
-
-function isAdmin(request: Request, env: Env): boolean {
-  const key = request.headers.get("x-admin-key");
-  return !!key && key === env.ADMIN_KEY;
-}
 
 function parseBatchIdFromPath(pathname: string, suffix?: string): number | null {
   const base = "/admin/batches/";
@@ -117,34 +74,9 @@ export async function handleAdminRoute(
     return null;
   }
 
-  if (!isAdmin(request, env)) {
-    return unauthorizedResponse();
-  }
-
-  if (pathname === "/admin/batches/create" && request.method === "POST") {
-    try {
-      const body = await readJsonBody<CreateBatchRequestBody>(request);
-
-      const created = await createBatchWithTickets(env.DB, {
-        targetDrawId: body.targetDrawId ?? null,
-        targetPaisId: body.targetPaisId ?? null,
-        targetDrawAt: body.targetDrawAt ?? null,
-        targetDrawSnapshotJson: body.targetDrawSnapshotJson ?? null,
-        generatorVersion: body.generatorVersion ?? null,
-        weightsVersionKey: body.weightsVersionKey ?? null,
-        tickets: body.tickets ?? [],
-      });
-
-      return jsonResponse({
-        ok: true,
-        batch: created.batch,
-        tickets: created.tickets,
-      });
-    } catch (error) {
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
+  const admin = await requireAdminContext(request, env);
+  if (!admin.ok) {
+    return admin.response;
   }
 
   if (pathname === "/admin/import/draws" && request.method === "POST") {
@@ -360,315 +292,6 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         batchId,
-      });
-    } catch (error) {
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname.endsWith("/mark-submitted") && request.method === "POST") {
-    const batchId = parseBatchIdFromPath(pathname, "/mark-submitted");
-    if (!batchId) {
-      return notFoundResponse();
-    }
-
-    try {
-      const batch = await markBatchAsSubmitted(env.DB, batchId);
-      return jsonResponse({
-        ok: true,
-        batchId,
-        status: batch?.status,
-      });
-    } catch (error) {
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname.endsWith("/sync-confirmation") && request.method === "POST") {
-    const batchId = parseBatchIdFromPath(pathname, "/sync-confirmation");
-    if (!batchId) {
-      return notFoundResponse();
-    }
-
-    try {
-      const body = await readJsonBody<SyncConfirmationRequestBody>(request);
-
-      const result = await syncBatchConfirmation(env.DB, batchId, body.token);
-      return jsonResponse({
-        ok: true,
-        ...result,
-      });
-    } catch (error) {
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname.endsWith("/submit-and-sync") && request.method === "POST") {
-    const batchId = parseBatchIdFromPath(pathname, "/submit-and-sync");
-    if (!batchId) {
-      return notFoundResponse();
-    }
-
-    try {
-      const body = await readJsonBody<SyncConfirmationRequestBody>(request);
-
-      // First mark as submitted
-      const batch = await markBatchAsSubmitted(env.DB, batchId);
-
-      // Then sync confirmation
-      const syncResult = await syncBatchConfirmation(env.DB, batchId, body.token);
-
-      return jsonResponse({
-        ok: true,
-        batchId,
-        submittedStatus: batch?.status,
-        ...syncResult,
-      });
-    } catch (error) {
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname === "/admin/lotto/otp/generate" && request.method === "POST") {
-    try {
-      const body = await readJsonBody<GenerateOtpRequestBody>(request);
-
-      await generateOtp({
-        idNumber: body.idNumber,
-        phoneNumber: body.phoneNumber,
-      });
-
-      return jsonResponse({
-        ok: true,
-      });
-    } catch (error) {
-      if (error instanceof LottoAuthError) {
-        return badRequestResponse(error.message);
-      }
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname === "/admin/lotto/otp/validate" && request.method === "POST") {
-    try {
-      const body = await readJsonBody<ValidateOtpRequestBody>(request);
-
-      const result = await validateOtp({
-        idNumber: body.idNumber,
-        phoneNumber: body.phoneNumber,
-        otpCode: body.otpCode,
-      });
-
-      return jsonResponse({
-        ok: true,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-      });
-    } catch (error) {
-      if (error instanceof LottoAuthError) {
-        return badRequestResponse(error.message);
-      }
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname === "/admin/batches/apply-to-lotto" && request.method === "POST") {
-    try {
-      const body = await readJsonBody<ApplyToLottoRequestBody>(request);
-
-      const batchId = body.batchId;
-      const accessToken = body.accessToken;
-      /*console.log("[apply-to-lotto] batchId:", batchId);
-      console.log("[apply-to-lotto] accessToken present:", !!accessToken);
-      console.log(
-    "[apply-to-lotto] accessToken tail:",
-          accessToken ? accessToken.slice(-8) : null
-      );*/
-
-      // Get batch with tickets
-      const batchData = await getBatchWithTicketsById(env.DB, batchId);
-      if (!batchData || !batchData.batch || batchData.batch.status !== "generated") {
-        return badRequestResponse("Batch not found or not in generated status");
-      }
-
-      const tickets = batchData.tickets;
-      if (!tickets || tickets.length === 0) {
-        return badRequestResponse("Batch has no tickets");
-      }
-
-      /*console.log("[apply-to-lotto] batch status:", batchData.batch.status);
-      console.log("[apply-to-lotto] tickets count:", tickets.length);
-      console.log("[apply-to-lotto] raw tickets:", JSON.stringify(tickets));*/
-
-      // Step 1: Calculate price
-      const calculatePayload = {
-        drawType: "DRAW_LOTTO",
-        ticketType: "REGULAR",
-        tables: tickets.length,
-        hasExtra: false,
-        numberOfDraws: 1,
-      };
-
-      //console.log("[apply-to-lotto] calculate payload:", JSON.stringify(calculatePayload));
-
-      const calculateResponse = await fetch("https://api.lottosheli.com/api/v1/client/tickets/calculate", {
-        method: "POST",
-        headers: {
-          "Authorization": `otp ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(calculatePayload),
-      });
-
-      const calculateText = await calculateResponse.text();
-      /*console.log("[apply-to-lotto] calculate status:", calculateResponse.status);
-      console.log("[apply-to-lotto] calculate response:", calculateText);*/
-
-      if (!calculateResponse.ok) {
-        return badRequestResponse(`Failed to calculate price: ${calculateText}`);
-      }
-
-      const calculateData = JSON.parse(calculateText);
-      const totalPrice = calculateData.total;
-
-      // Step 2: Check duplicate combinations
-      const tablesNumbers = tickets.map((ticket) => {
-        let numbers: number[];
-        try {
-          numbers = typeof ticket.numbers_json === "string"
-            ? JSON.parse(ticket.numbers_json)
-            : ticket.numbers_json || [];
-        } catch {
-          numbers = [];
-        }
-        return {
-          regularNumbers: numbers,
-          strongNumbers: [ticket.strong_number || 0],
-        };
-      });
-      //console.log("[apply-to-lotto] tablesNumbers:", JSON.stringify(tablesNumbers));
-
-      const duplicatePayload = {
-        tickets: [
-          {
-            numberOfDraws: 1,
-            autoRenewal: false,
-            drawType: "DRAW_LOTTO",
-            isExtra: false,
-            tablesNumbers,
-            ticketType: "REGULAR",
-          },
-        ],
-      };
-
-      //console.log("[apply-to-lotto] duplicate payload:", JSON.stringify(duplicatePayload));
-
-      const checkDuplicateResponse = await fetch("https://api.lottosheli.com/api/v1/client/user/tickets/check-duplicate-combination", {
-        method: "POST",
-        headers: {
-          "Authorization": `otp ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(duplicatePayload),
-      });
-
-      const duplicateText = await checkDuplicateResponse.text();
-      /*console.log("[apply-to-lotto] duplicate status:", checkDuplicateResponse.status);
-      console.log("[apply-to-lotto] duplicate response:", duplicateText);*/
-
-      if (!checkDuplicateResponse.ok) {
-        return badRequestResponse(`Failed to check duplicate: ${duplicateText}`);
-      }
-
-      const checkDuplicateData = JSON.parse(duplicateText);
-      if (checkDuplicateData.isDuplicateCombination === true) {
-        return badRequestResponse("Duplicate combination detected");
-      }
-
-      // Step 3: Pay for tickets
-      const payPayload = {
-        transactionType: "PURCHASE",
-        tickets: [
-          {
-            numberOfDraws: 1,
-            autoRenewal: false,
-            drawType: "DRAW_LOTTO",
-            isExtra: false,
-            tablesNumbers,
-            ticketType: "REGULAR",
-          },
-        ],
-        amountFromCredit: calculateData.total,
-        amountFromDeposit: 0,
-        clientUrl: "https://lottosheli.co.il",
-        apiUrl: "https://api.lottosheli.com",
-        useSavedCard: true,
-        saveCard: true,
-        uiCustomData: {},
-      };
-
-      //console.log("[apply-to-lotto] pay payload:", JSON.stringify(payPayload));
-
-      const payResponse = await fetch("https://api.lottosheli.com/api/v1/client/payments", {
-        method: "POST",
-        headers: {
-          "Authorization": `otp ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payPayload),
-      });
-
-      const payText = await payResponse.text();
-      /*console.log("[apply-to-lotto] pay status:", payResponse.status);
-      console.log("[apply-to-lotto] pay response:", payText);*/
-
-      if (!payResponse.ok) {
-        return badRequestResponse(`Failed to pay: ${payText}`);
-      }
-
-      const payData = JSON.parse(payText);
-      if (!payData.success) {
-        return badRequestResponse(`Payment failed: ${payText}`);
-      }
-
-      // Step 4: Mark batch as submitted
-      const batch = await markBatchAsSubmitted(env.DB, batchId);
-
-      return jsonResponse({
-        ok: true,
-        batchId,
-        transactionId: payData.transactionId,
-        totalPrice,
-        status: batch?.status,
-      });
-    } catch (error) {
-      return badRequestResponse(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  }
-
-  if (pathname === "/admin/batches/refresh-statuses" && request.method === "POST") {
-    try {
-      const body = await readJsonBody<RefreshBatchStatusesRequestBody>(request);
-
-      const result = await refreshBatchStatusesFromLotto(env.DB, body.accessToken);
-
-      return jsonResponse({
-        ok: true,
-        ...result,
       });
     } catch (error) {
       return badRequestResponse(
