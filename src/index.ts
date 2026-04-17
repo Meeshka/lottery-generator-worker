@@ -142,7 +142,7 @@ export default {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-admin-key": env.ADMIN_KEY,
+              "Authorization": `Bearer ${admin.ctx.accessToken}`,
             },
             body: JSON.stringify({
               versionKey: new Date().toISOString(),
@@ -171,7 +171,7 @@ export default {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "x-admin-key": env.ADMIN_KEY,
+                "Authorization": `Bearer ${admin.ctx.accessToken}`,
               },
               body: JSON.stringify({ draws: importDraws }),
             }
@@ -254,7 +254,7 @@ export default {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-admin-key": env.ADMIN_KEY,
+              "Authorization": `Bearer ${admin.ctx.accessToken}`,
             },
             body: JSON.stringify({ draws: importDraws }),
           }
