@@ -24,7 +24,11 @@ export interface RequestAuthContext {
 function decodeBase64Url(input: string): string {
   const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-  return atob(padded);
+
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+
+  return new TextDecoder("utf-8").decode(bytes);
 }
 
 function extractBearerToken(request: Request): string {
