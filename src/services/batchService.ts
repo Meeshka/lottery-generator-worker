@@ -563,26 +563,6 @@ function shouldRetargetGeneratedBatchToOpenDraw(
   return Number(batch.target_pais_id) !== Number(currentOpenPaisId);
 }
 
-function shouldLinkConfirmedBatchToOpenDraw(
-  batch: BatchRow,
-  currentOpenPaisId: number | null,
-): boolean {
-  if (batch.status !== "confirmed") {
-    return false;
-  }
-
-  if (currentOpenPaisId === null || currentOpenPaisId === undefined) {
-    return false;
-  }
-
-  // Link if target_pais_id is null (abandoned) or doesn't match current open draw
-  if (batch.target_pais_id === null || batch.target_pais_id === undefined) {
-    return true;
-  }
-
-  return Number(batch.target_pais_id) !== Number(currentOpenPaisId);
-}
-
 async function shouldAutoCheckBatchAgainstLatestDraw(
   db: D1Database,
   batch: BatchRow,
