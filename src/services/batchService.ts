@@ -496,7 +496,6 @@ export async function submitAndSyncBatchConfirmation(
 export interface RefreshBatchStatusesSummary {
   remoteTickets: number;
   retargetedGenerated: number;
-  retargetedConfirmed: number;
   matchedExisting: number;
   confirmedExisting: number;
   createdMissing: number;
@@ -620,7 +619,6 @@ export async function refreshBatchStatusesFromLotto(
   const allBatches = await getBatchesRepo(db);
 
   let retargetedGenerated = 0;
-  let retargetedConfirmed = 0;
 
   for (const batch of allBatches) {
     if (shouldRetargetGeneratedBatchToOpenDraw(batch, openDraw.paisId)) {
@@ -631,14 +629,6 @@ export async function refreshBatchStatusesFromLotto(
         targetDrawSnapshotJson,
       });
       retargetedGenerated++;
-    } else if (shouldLinkConfirmedBatchToOpenDraw(batch, openDraw.paisId)) {
-      await updateBatchTargetDrawInfo(db, batch.id, {
-        targetDrawId: null,
-        targetPaisId: openDraw.paisId,
-        targetDrawAt: openDraw.drawAt,
-        targetDrawSnapshotJson,
-      });
-      retargetedConfirmed++;
     }
   }
 
@@ -770,7 +760,6 @@ export async function refreshBatchStatusesFromLotto(
     summary: {
       remoteTickets: remoteTickets.length,
       retargetedGenerated,
-      retargetedConfirmed,
       matchedExisting,
       confirmedExisting,
       createdMissing,
