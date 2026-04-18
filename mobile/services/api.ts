@@ -1,5 +1,5 @@
 const API_BASE =
-  process.env.EXPO_PUBLIC_API_BASE ??
+  process.env.EXPO_PUBLIC_API_URL ??
   "https://lottery-generator-worker.ushakov-ma.workers.dev";
 
 const PYTHON_ENGINE_BASE =
