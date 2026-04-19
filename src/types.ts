@@ -14,6 +14,7 @@ export interface CreateBatchInput {
   generatorVersion?: string | null;
   weightsVersionKey?: string | null;
   ticketCount: number;
+  createdByUserId?: string | null;
 }
 
 export interface BatchRow {
@@ -28,6 +29,7 @@ export interface BatchRow {
   weights_version_key: string | null;
   ticket_count: number;
   created_at: string;
+  created_by_user_id: string | null;
   checked_at: string | null;
   submitted_at: string | null;
   confirmed_at: string | null;

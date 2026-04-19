@@ -207,6 +207,7 @@ function chooseBestCandidate(
 export async function createBatchWithTickets(
   db: D1Database,
   input: CreateBatchWithTicketsInput,
+  createdByUserId?: string | null,
 ): Promise<BatchWithTickets> {
 
   if (!Array.isArray(input.tickets) || input.tickets.length === 0) {
@@ -226,6 +227,7 @@ export async function createBatchWithTickets(
     generatorVersion: input.generatorVersion ?? null,
     weightsVersionKey: input.weightsVersionKey ?? null,
     ticketCount: input.tickets.length,
+    createdByUserId: createdByUserId ?? null,
   };
 
   const batch = await createBatch(db, createInput);

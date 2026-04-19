@@ -20,6 +20,13 @@ import {
   getLatestBatchSummary,
 } from "../services/resultService";
 import { getBatchById } from "../repositories/batchesRepo";
+import {
+  getBatchesByUserInLastHour,
+  getBatchesByUserInLastDay,
+} from "../repositories/rateLimitRepo";
+import {
+  getDailyBatchQuota,
+} from "../repositories/settingsRepo";
 
 interface CreateBatchRequestBody {
   targetDrawId?: string | null;
@@ -189,6 +196,32 @@ export async function handleBatchesRoute(
     try {
       const body = await readJsonBody<CreateBatchRequestBody>(request);
 
+      // Rate limiting checks
+      const hourlyLimit = 5;
+      const hourlyBatches = await getBatchesByUserInLastHour(env.DB, auth.ctx.lottoUserId);
+      if (hourlyBatches >= hourlyLimit) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: `Rate limit exceeded: maximum ${hourlyLimit} batches per hour`,
+          },
+          { status: 429 }
+        );
+      }
+
+      // Daily quota check (configurable by admin)
+      const dailyQuota = await getDailyBatchQuota(env.DB);
+      const dailyBatches = await getBatchesByUserInLastDay(env.DB, auth.ctx.lottoUserId);
+      if (dailyBatches >= dailyQuota) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: `Daily quota exceeded: maximum ${dailyQuota} batches per day`,
+          },
+          { status: 429 }
+        );
+      }
+
       const created = await createBatchWithTickets(env.DB, {
         targetDrawId: body.targetDrawId ?? null,
         targetPaisId: body.targetPaisId ?? null,
@@ -197,7 +230,7 @@ export async function handleBatchesRoute(
         generatorVersion: body.generatorVersion ?? null,
         weightsVersionKey: body.weightsVersionKey ?? null,
         tickets: body.tickets ?? [],
-      });
+      }, auth.ctx.lottoUserId);
 
       return jsonResponse({
         ok: true,

@@ -468,3 +468,40 @@ export async function checkMissingBatchResults(accessToken: string) {
 
   return res.json();
 }
+
+export async function getDailyBatchQuota(accessToken: string): Promise<{ ok: boolean; quota: number }> {
+  const res = await fetch(buildUrl("/admin/settings/daily-batch-quota"), {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to get daily batch quota - ${text}`);
+  }
+
+  return res.json();
+}
+
+export async function setDailyBatchQuota(accessToken: string, quota: number): Promise<{ ok: boolean; quota: number }> {
+  const res = await fetch(buildUrl("/admin/settings/daily-batch-quota"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ quota }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to set daily batch quota - ${text}`);
+  }
+
+  return res.json();
+}
