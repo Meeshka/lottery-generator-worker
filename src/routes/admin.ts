@@ -23,6 +23,7 @@ import {
 } from "../services/resultService";
 import { upsertDraw, getDrawByDrawId } from "../repositories/drawsRepo";
 import { insertWeights } from "../repositories/weightsRepo";
+import { getDailyBatchQuota, setDailyBatchQuota } from "../repositories/settingsRepo";
 
 interface ImportResultsRequestBody {
   drawId?: string | null;
@@ -307,6 +308,42 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         ...result,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/settings/daily-batch-quota" && request.method === "GET") {
+    try {
+      const quota = await getDailyBatchQuota(env.DB);
+
+      return jsonResponse({
+        ok: true,
+        quota,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/settings/daily-batch-quota" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<{ quota: number }>(request);
+
+      if (typeof body.quota !== "number" || body.quota < 0) {
+        return badRequestResponse("Invalid quota value");
+      }
+
+      await setDailyBatchQuota(env.DB, body.quota);
+
+      return jsonResponse({
+        ok: true,
+        quota: body.quota,
       });
     } catch (error) {
       return badRequestResponse(

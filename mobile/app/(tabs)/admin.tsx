@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +16,8 @@ import {
   validateToken,
   recalculateWeights,
   checkMissingBatchResults,
+  getDailyBatchQuota,
+  setDailyBatchQuota,
 } from "../../services/api";
 import {
   getAccessToken,
@@ -29,10 +32,20 @@ export default function AdminActionsScreen() {
   const [updatingDraws, setUpdatingDraws] = useState(false);
   const [recalculatingWeights, setRecalculatingWeights] = useState(false);
   const [checkingMissingResults, setCheckingMissingResults] = useState(false);
+  const [dailyQuota, setDailyQuota] = useState<number | null>(null);
+  const [editingQuota, setEditingQuota] = useState(false);
+  const [newQuota, setNewQuota] = useState("");
+  const [savingQuota, setSavingQuota] = useState(false);
 
   useEffect(() => {
     checkAuthAndRedirect();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin && tokenValid) {
+      loadDailyQuota();
+    }
+  }, [isAdmin, tokenValid]);
 
   async function checkAuthAndRedirect() {
     try {
@@ -60,6 +73,52 @@ export default function AdminActionsScreen() {
       }
     } catch (err) {
       console.error("Error checking auth:", err);
+    }
+  }
+
+  async function loadDailyQuota() {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const result = await getDailyBatchQuota(token);
+      if (result.ok) {
+        setDailyQuota(result.quota);
+        setNewQuota(String(result.quota));
+      }
+    } catch (err) {
+      console.error("Error loading daily quota:", err);
+    }
+  }
+
+  async function handleSaveQuota() {
+    const token = await getAccessToken();
+    if (!token) {
+      Alert.alert("Error", "No access token found. Please login first.");
+      return;
+    }
+
+    const quotaValue = parseInt(newQuota, 10);
+    if (isNaN(quotaValue) || quotaValue < 0) {
+      Alert.alert("Error", "Please enter a valid quota value (0 or greater).");
+      return;
+    }
+
+    setSavingQuota(true);
+    try {
+      const result = await setDailyBatchQuota(token, quotaValue);
+      if (result.ok) {
+        setDailyQuota(result.quota);
+        setEditingQuota(false);
+        Alert.alert("Success", `Daily quota updated to ${result.quota} batches per day.`);
+      } else {
+        Alert.alert("Error", "Failed to update daily quota.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      Alert.alert("Error", message);
+    } finally {
+      setSavingQuota(false);
     }
   }
 
@@ -301,6 +360,71 @@ export default function AdminActionsScreen() {
             )}
           </Pressable>
         </View>
+
+        {/* Daily Batch Quota Card */}
+        <View style={styles.actionCard}>
+          <Text style={styles.actionTitle}>Daily Batch Quota</Text>
+          <Text style={styles.actionDescription}>
+            Maximum number of batches a user can create per day. (Hourly limit: 5 batches/hour)
+          </Text>
+          <View style={styles.quotaContainer}>
+            {editingQuota ? (
+              <View style={styles.quotaEditContainer}>
+                <TextInput
+                  style={styles.quotaInput}
+                  value={newQuota}
+                  onChangeText={setNewQuota}
+                  keyboardType="number-pad"
+                  placeholder="Enter quota"
+                />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quotaButton,
+                    styles.saveButton,
+                    pressed && styles.buttonPressed,
+                    savingQuota && styles.buttonDisabled,
+                  ]}
+                  onPress={handleSaveQuota}
+                  disabled={savingQuota}
+                >
+                  {savingQuota ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>Save</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quotaButton,
+                    styles.cancelButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => {
+                    setEditingQuota(false);
+                    setNewQuota(String(dailyQuota ?? 50));
+                  }}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.quotaDisplayContainer}>
+                <Text style={styles.quotaValue}>{dailyQuota ?? 50}</Text>
+                <Text style={styles.quotaLabel}>batches/day</Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quotaButton,
+                    styles.editButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => setEditingQuota(true)}
+                >
+                  <Text style={styles.buttonText}>Edit</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -378,5 +502,51 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  quotaContainer: {
+    marginTop: 8,
+  },
+  quotaEditContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  quotaDisplayContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  quotaInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  quotaButton: {
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  editButton: {
+    backgroundColor: "#007AFF",
+  },
+  saveButton: {
+    backgroundColor: "#34C759",
+  },
+  cancelButton: {
+    backgroundColor: "#FF3B30",
+  },
+  quotaValue: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#333",
+  },
+  quotaLabel: {
+    fontSize: 14,
+    color: "#666",
   },
 });

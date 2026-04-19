@@ -16,9 +16,10 @@ export async function createBatch(
           target_draw_snapshot_json,
           generator_version,
           weights_version_key,
-          ticket_count
+          ticket_count,
+          created_by_user_id
         )
-      VALUES (?, 'generated', ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, 'generated', ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       input.batchKey,
@@ -29,6 +30,7 @@ export async function createBatch(
       input.generatorVersion ?? null,
       input.weightsVersionKey ?? null,
       input.ticketCount,
+      input.createdByUserId ?? null,
     )
     .run();
 
@@ -58,6 +60,7 @@ const BASE_BATCH_SELECT = `
     weights_version_key,
     ticket_count,
     created_at,
+    created_by_user_id,
     checked_at,
     submitted_at,
     confirmed_at,
@@ -339,3 +342,9 @@ export async function deleteBatch(
     .run();
 
 }
+
+
+
+
+
+
