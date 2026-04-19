@@ -51,6 +51,7 @@ BASE_LIMITS = [3, 3, 3, 2]
 HARD_LIMITS = [4, 4, 4, 3]
 
 SEG_WEIGHTS = [0.9, 0.96, 1.1, 1.05]
+_SAVED_SEG_WEIGHTS: Optional[List[float]] = None
 
 ALPHA_OVERFLOW = 0.12   # штраф за каждую единицу превышения базы
 BETA_ZERO = 0.85        # (legacy) штраф за каждый нулевой сегмент (можно 1.0 отключить)
@@ -448,6 +449,41 @@ def get_segment_distribution(numbers: List[int]) -> Tuple[int, int, int, int]:
 def distribution_distance(dist1: Tuple[int, ...], dist2: Tuple[int, ...]) -> float:
     """Calculate Euclidean distance between two distributions."""
     return sum((a - b) ** 2 for a, b in zip(dist1, dist2)) ** 0.5
+
+
+def calculate_cluster_weights(centroid: Tuple[float, ...]) -> List[float]:
+    """
+    Calculate segment weights based on cluster centroid.
+    Higher centroid values get higher weights to bias generation toward that cluster.
+    """
+    global SEG_WEIGHTS
+    # Normalize centroid to get weights proportional to expected segment counts
+    total = sum(centroid)
+    if total == 0:
+        return SEG_WEIGHTS.copy()
+
+    # Base weights proportional to centroid values
+    # Add minimum weight to avoid zero weights
+    weights = [max(0.1, c / total * 4.0) for c in centroid]
+
+    return weights
+
+
+def apply_cluster_weights(centroid: Tuple[float, ...]) -> None:
+    """Apply cluster-based segment weights, overriding default weights."""
+    global SEG_WEIGHTS, _SAVED_SEG_WEIGHTS
+    _SAVED_SEG_WEIGHTS = SEG_WEIGHTS.copy()
+    SEG_WEIGHTS = calculate_cluster_weights(centroid)
+    invalidate_allowed_cache()
+
+
+def restore_original_weights() -> None:
+    """Restore original segment weights."""
+    global SEG_WEIGHTS, _SAVED_SEG_WEIGHTS
+    if _SAVED_SEG_WEIGHTS is not None:
+        SEG_WEIGHTS = _SAVED_SEG_WEIGHTS.copy()
+        _SAVED_SEG_WEIGHTS = None
+    invalidate_allowed_cache()
 
 
 def main():
