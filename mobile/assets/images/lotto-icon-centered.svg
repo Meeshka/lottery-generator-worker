@@ -1,0 +1,138 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="#6366f1"/>
+
+  <!-- K-means cluster visualization -->
+  <g opacity="0.28">
+    <circle cx="300" cy="280" r="12" fill="#ffffff"/>
+    <circle cx="334" cy="266" r="9" fill="#ffffff"/>
+    <circle cx="275" cy="325" r="10" fill="#ffffff"/>
+    <circle cx="318" cy="324" r="8" fill="#ffffff"/>
+    <circle cx="359" cy="288" r="13" fill="#ffffff"/>
+    <circle cx="283" cy="263" r="9" fill="#ffffff"/>
+    <circle cx="327" cy="308" r="11" fill="#ffffff"/>
+    <line x1="300" y1="280" x2="334" y2="266" stroke="#ffffff" stroke-width="3"/>
+    <line x1="300" y1="280" x2="275" y2="325" stroke="#ffffff" stroke-width="3"/>
+    <line x1="300" y1="280" x2="318" y2="324" stroke="#ffffff" stroke-width="3"/>
+    <line x1="300" y1="280" x2="359" y2="288" stroke="#ffffff" stroke-width="3"/>
+  </g>
+
+  <!-- Cluster 2 - bottom right -->
+  <g opacity="0.32">
+    <circle cx="672" cy="660" r="12" fill="#ffffff"/>
+    <circle cx="706" cy="626" r="9" fill="#ffffff"/>
+    <circle cx="647" cy="698" r="10" fill="#ffffff"/>
+    <circle cx="682" cy="716" r="8" fill="#ffffff"/>
+    <circle cx="732" cy="672" r="13" fill="#ffffff"/>
+    <circle cx="654" cy="642" r="9" fill="#ffffff"/>
+    <circle cx="697" cy="685" r="11" fill="#ffffff"/>
+    <line x1="672" y1="660" x2="706" y2="626" stroke="#ffffff" stroke-width="3"/>
+    <line x1="672" y1="660" x2="647" y2="698" stroke="#ffffff" stroke-width="3"/>
+    <line x1="672" y1="660" x2="682" y2="716" stroke="#ffffff" stroke-width="3"/>
+    <line x1="672" y1="660" x2="732" y2="672" stroke="#ffffff" stroke-width="3"/>
+  </g>
+
+  <!-- Neural network nodes -->
+  <g opacity="0.6">
+    <circle cx="190" cy="426" r="16" fill="#FBCE27"/>
+    <circle cx="256" cy="470" r="16" fill="#FE5774"/>
+    <circle cx="190" cy="512" r="16" fill="#FBCE27"/>
+    <circle cx="310" cy="512" r="16" fill="#FE5774"/>
+    <circle cx="190" cy="598" r="16" fill="#FBCE27"/>
+    <circle cx="256" cy="512" r="16" fill="#FE5774"/>
+    <circle cx="256" cy="550" r="16" fill="#FBCE27"/>
+
+    <line x1="190" y1="512" x2="256" y2="512" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="190" y1="512" x2="256" y2="470" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="190" y1="512" x2="256" y2="550" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="190" y1="598" x2="256" y2="550" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="190" y1="426" x2="256" y2="470" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="256" y1="512" x2="310" y2="512" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="256" y1="470" x2="310" y2="512" stroke="#a5b4fc" stroke-width="4"/>
+    <line x1="256" y1="550" x2="310" y2="512" stroke="#a5b4fc" stroke-width="4"/>
+  </g>
+
+  <!-- Matrix/grid pattern -->
+  <g opacity="0.22">
+    <rect x="630" y="180" width="38" height="38" rx="6" fill="#ffffff"/>
+    <rect x="678" y="180" width="38" height="38" rx="6" fill="#ffffff"/>
+    <rect x="726" y="180" width="38" height="38" rx="6" fill="#ffffff"/>
+    <rect x="630" y="228" width="38" height="38" rx="6" fill="#ffffff"/>
+    <rect x="678" y="228" width="38" height="38" rx="6" fill="#ffffff"/>
+    <rect x="726" y="228" width="38" height="38" rx="6" fill="#ffffff"/>
+  </g>
+
+  <!-- Data points scatter -->
+  <g opacity="0.26">
+    <circle cx="430" cy="228" r="7" fill="#ffffff"/>
+    <circle cx="458" cy="204" r="5" fill="#ffffff"/>
+    <circle cx="402" cy="248" r="8" fill="#ffffff"/>
+    <circle cx="484" cy="236" r="6" fill="#ffffff"/>
+    <circle cx="548" cy="736" r="7" fill="#ffffff"/>
+    <circle cx="578" cy="712" r="5" fill="#ffffff"/>
+    <circle cx="518" cy="762" r="8" fill="#ffffff"/>
+    <circle cx="606" cy="744" r="6" fill="#ffffff"/>
+  </g>
+
+  <!-- Decorative circles -->
+  <circle cx="714" cy="288" r="58" fill="#a5b4fc" opacity="0.22"/>
+  <circle cx="296" cy="704" r="94" fill="#c7d2fe" opacity="0.22"/>
+
+  <!-- ML Brain picture -->
+  <g transform="translate(660 225) scale(0.40)" opacity="0.42">
+    <path d="M 69 54 L 58 68 L 56 91 L 36 109 L 33 123 L 37 139 L 26 157 L 31 181 L 45 192 L 40 217 L 46 230 L 70 244 L 72 255 L 85 269 L 97 273 L 115 270 L 137 276 L 153 269 L 162 256 L 163 223 L 180 226 L 178 243 L 188 253 L 199 252 L 206 244 L 201 227 L 187 224 L 181 215 L 162 214 L 163 196 L 212 197 L 223 210 L 222 225 L 213 234 L 213 244 L 223 253 L 235 251 L 240 246 L 241 234 L 232 225 L 229 205 L 217 191 L 162 188 L 163 174 L 214 174 L 236 198 L 254 200 L 263 209 L 279 203 L 280 188 L 266 180 L 252 191 L 240 191 L 216 166 L 162 165 L 163 139 L 217 139 L 240 114 L 252 114 L 261 124 L 269 125 L 281 115 L 279 102 L 263 96 L 252 107 L 236 107 L 216 130 L 162 130 L 163 116 L 215 116 L 231 97 L 232 80 L 241 71 L 239 58 L 230 52 L 215 58 L 213 71 L 222 80 L 223 95 L 211 109 L 162 108 L 163 90 L 181 90 L 188 81 L 205 74 L 207 65 L 200 54 L 189 52 L 180 58 L 181 78 L 177 83 L 162 82 L 162 51 L 151 36 L 139 30 L 118 31 L 99 49 L 82 48 Z M 129 36 L 144 40 L 155 53 L 155 83 L 152 104 L 143 102 L 131 108 L 134 113 L 148 110 L 154 114 L 153 150 L 139 149 L 132 153 L 133 158 L 136 159 L 148 156 L 154 160 L 154 255 L 147 264 L 139 268 L 127 268 L 121 265 L 128 253 L 128 244 L 125 237 L 119 237 L 118 239 L 121 249 L 114 261 L 105 265 L 95 265 L 85 260 L 78 250 L 78 242 L 92 236 L 98 229 L 98 223 L 93 222 L 87 230 L 74 236 L 58 231 L 50 222 L 47 213 L 48 202 L 55 188 L 44 183 L 37 176 L 33 166 L 37 150 L 46 142 L 57 141 L 67 149 L 71 147 L 71 143 L 64 136 L 55 133 L 43 134 L 41 129 L 42 113 L 55 99 L 60 98 L 66 104 L 72 106 L 81 105 L 84 102 L 81 97 L 71 98 L 65 91 L 63 79 L 68 66 L 77 58 L 86 55 L 104 58 L 110 62 L 114 69 L 115 83 L 121 82 L 122 70 L 120 63 L 114 55 L 107 51 L 114 42 Z M 224 232 L 230 232 L 233 235 L 234 237 L 234 241 L 230 245 L 228 246 L 226 246 L 222 244 L 221 243 L 220 241 L 220 236 Z M 189 232 L 195 232 L 199 236 L 199 241 L 198 243 L 197 244 L 193 246 L 191 246 L 189 245 L 185 241 L 185 237 L 186 235 Z M 264 188 L 269 188 L 271 189 L 273 191 L 274 193 L 274 196 L 273 198 L 270 201 L 268 202 L 265 202 L 263 201 L 261 199 L 260 197 L 260 192 Z M 265 103 L 269 103 L 274 108 L 274 112 L 273 114 L 271 116 L 269 117 L 264 117 L 260 113 L 260 108 L 261 106 L 263 104 Z M 226 59 L 228 59 L 230 60 L 234 64 L 234 68 L 233 70 L 230 73 L 224 73 L 220 69 L 220 64 L 224 60 Z M 191 59 L 193 59 L 195 60 L 199 64 L 199 69 L 195 73 L 189 73 L 186 70 L 185 68 L 185 65 L 186 63 L 189 60 Z M 106 172 L 106 177 L 107 180 L 109 184 L 111 187 L 113 189 L 116 191 L 120 193 L 123 194 L 131 194 L 133 193 L 134 191 L 134 189 L 132 187 L 126 187 L 122 186 L 119 184 L 116 181 L 114 178 L 113 175 L 113 172 L 111 170 L 108 170 Z M 75 171 L 74 172 L 73 174 L 73 180 L 74 184 L 77 190 L 82 195 L 88 198 L 94 197 L 94 192 L 91 191 L 87 189 L 83 185 L 81 181 L 81 173 L 79 171 L 77 170 Z M 85 123 L 84 128 L 86 130 L 89 130 L 95 127 L 99 127 L 102 128 L 104 129 L 110 135 L 114 135 L 116 133 L 116 131 L 115 129 L 109 123 L 105 121 L 102 120 L 92 120 L 89 121 Z" fill="#FFF" fill-rule="evenodd"/>
+  </g>
+
+  <!-- ML settings -->
+  <g transform="translate(220 620) scale(0.62)" opacity="0.42">
+    <path d="M34 210V38" stroke="#282C3D" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 54L34 38L48 54" stroke="#282C3D" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M34 210H218" stroke="#282C3D" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M202 196L218 210L202 224" stroke="#282C3D" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M36 208L186 58" stroke="#282C3D" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <circle cx="80" cy="76" r="16" fill="#282C3D"/>
+      <circle cx="80" cy="76" r="8" fill="#FBCE27"/>
+      <circle cx="120" cy="88" r="16" fill="#282C3D"/>
+      <circle cx="120" cy="88" r="8" fill="#FBCE27"/>
+      <circle cx="140" cy="48" r="16" fill="#282C3D"/>
+      <circle cx="140" cy="48" r="8" fill="#FBCE27"/>
+      <circle cx="72" cy="140" r="16" fill="#282C3D"/>
+      <circle cx="72" cy="140" r="8" fill="#FBCE27"/>
+    </g>
+    <g>
+      <rect x="154" y="118" width="28" height="28" rx="6" fill="#282C3D"/>
+      <rect x="161" y="125" width="14" height="14" rx="2" fill="#FE5774"/>
+      <rect x="102" y="166" width="28" height="28" rx="6" fill="#282C3D"/>
+      <rect x="109" y="173" width="14" height="14" rx="2" fill="#FE5774"/>
+      <rect x="152" y="162" width="28" height="28" rx="6" fill="#282C3D"/>
+      <rect x="159" y="169" width="14" height="14" rx="2" fill="#FE5774"/>
+      <rect x="194" y="130" width="28" height="28" rx="6" fill="#282C3D"/>
+      <rect x="201" y="137" width="14" height="14" rx="2" fill="#FE5774"/>
+    </g>
+  </g>
+
+  <!-- Main lottery balls -->
+  <circle cx="396" cy="440" r="90" fill="#ffffff"/>
+  <circle cx="396" cy="440" r="82" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
+  <text x="390" y="466" font-family="Arial, sans-serif" font-size="70" font-weight="bold" fill="#6366f1" text-anchor="middle">7</text>
+
+  <circle cx="522" cy="370" r="90" fill="#ffffff"/>
+  <circle cx="522" cy="370" r="82" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
+  <text x="522" y="396" font-family="Arial, sans-serif" font-size="70" font-weight="bold" fill="#6366f1" text-anchor="middle">21</text>
+
+  <circle cx="638" cy="430" r="90" fill="#ffffff"/>
+  <circle cx="638" cy="430" r="82" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
+  <text x="638" y="456" font-family="Arial, sans-serif" font-size="70" font-weight="bold" fill="#6366f1" text-anchor="middle">18</text>
+
+  <circle cx="446" cy="562" r="90" fill="#ffffff"/>
+  <circle cx="446" cy="562" r="82" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
+  <text x="446" y="588" font-family="Arial, sans-serif" font-size="70" font-weight="bold" fill="#6366f1" text-anchor="middle">15</text>
+
+  <circle cx="588" cy="562" r="90" fill="#ffffff"/>
+  <circle cx="588" cy="562" r="82" fill="#f8fafc" stroke="#e2e8f0" stroke-width="4"/>
+  <text x="588" y="588" font-family="Arial, sans-serif" font-size="70" font-weight="bold" fill="#6366f1" text-anchor="middle">33</text>
+
+  <!-- Star accent -->
+  <path d="M760 336 L769 361 L795 361 L774 377 L782 402 L760 386 L738 402 L746 377 L725 361 L751 361 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/>
+</svg>
