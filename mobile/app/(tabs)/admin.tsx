@@ -18,6 +18,8 @@ import {
   checkMissingBatchResults,
   getDailyBatchQuota,
   setDailyBatchQuota,
+  healthCheck,
+  pythonHealthCheck,
 } from "../../services/api";
 import {
   getAccessToken,
@@ -36,9 +38,12 @@ export default function AdminActionsScreen() {
   const [editingQuota, setEditingQuota] = useState(false);
   const [newQuota, setNewQuota] = useState("");
   const [savingQuota, setSavingQuota] = useState(false);
+  const [workerHealth, setWorkerHealth] = useState<"loading" | "ok" | "error">("loading");
+  const [pythonHealth, setPythonHealth] = useState<"loading" | "ok" | "error">("loading");
 
   useEffect(() => {
     checkAuthAndRedirect();
+    loadHealthStatus();
   }, []);
 
   useEffect(() => {
@@ -46,6 +51,25 @@ export default function AdminActionsScreen() {
       loadDailyQuota();
     }
   }, [isAdmin, tokenValid]);
+
+  async function loadHealthStatus() {
+    setWorkerHealth("loading");
+    setPythonHealth("loading");
+    
+    try {
+      await healthCheck();
+      setWorkerHealth("ok");
+    } catch {
+      setWorkerHealth("error");
+    }
+    
+    try {
+      await pythonHealthCheck();
+      setPythonHealth("ok");
+    } catch {
+      setPythonHealth("error");
+    }
+  }
 
   async function checkAuthAndRedirect() {
     try {
@@ -290,6 +314,52 @@ export default function AdminActionsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Admin Actions</Text>
+
+        {/* Health Status Card */}
+        <View style={styles.actionCard}>
+          <Text style={styles.actionTitle}>System Health</Text>
+          <View style={styles.healthRow}>
+            <View style={styles.healthItem}>
+              <Text style={styles.healthLabel}>Main Worker</Text>
+              {workerHealth === "loading" ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <View style={[
+                  styles.healthIndicator,
+                  workerHealth === "ok" ? styles.healthOk : styles.healthError
+                ]}>
+                  <Text style={styles.healthIndicatorText}>
+                    {workerHealth === "ok" ? "●" : "●"}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.healthItem}>
+              <Text style={styles.healthLabel}>Python Engine</Text>
+              {pythonHealth === "loading" ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <View style={[
+                  styles.healthIndicator,
+                  pythonHealth === "ok" ? styles.healthOk : styles.healthError
+                ]}>
+                  <Text style={styles.healthIndicatorText}>
+                    {pythonHealth === "ok" ? "●" : "●"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.refreshButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={loadHealthStatus}
+          >
+            <Text style={styles.buttonText}>Refresh Status</Text>
+          </Pressable>
+        </View>
 
         {/* Update Draws Card */}
         <View style={styles.actionCard}>
@@ -548,5 +618,42 @@ const styles = StyleSheet.create({
   quotaLabel: {
     fontSize: 14,
     color: "#666",
+  },
+  healthRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 16,
+  },
+  healthItem: {
+    alignItems: "center",
+  },
+  healthLabel: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  healthIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  healthOk: {
+    backgroundColor: "#34C759",
+  },
+  healthError: {
+    backgroundColor: "#FF3B30",
+  },
+  healthIndicatorText: {
+    color: "white",
+    fontSize: 16,
+  },
+  refreshButton: {
+    backgroundColor: "#007AFF",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
   },
 });

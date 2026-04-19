@@ -14,6 +14,12 @@ class Default(WorkerEntrypoint):
             url = str(request.url)
             print(f"[DEBUG] entry.py: Received request: {request.method} {url}")
 
+            if url.endswith('/health'):
+                return Response(
+                    json.dumps({'status': 'ok', 'service': 'python-engine'}),
+                    headers={'Content-Type': 'application/json'},
+                )
+
             if url.endswith('/recalculate-weights'):
                 print(f"[DEBUG] entry.py: Matched /recalculate-weights endpoint")
                 if request.method != 'POST':

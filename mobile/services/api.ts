@@ -33,6 +33,25 @@ export async function healthCheck() {
   return data;
 }
 
+export async function pythonHealthCheck() {
+  const res = await fetch(buildPythonUrl("/health"));
+
+  const text = await res.text();
+
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+  }
+
+  return data;
+}
+
 export async function getLatestDraw() {
   const res = await fetch(buildUrl("/draws/latest"));
 
