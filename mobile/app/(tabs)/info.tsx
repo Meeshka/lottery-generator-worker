@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   healthCheck,
+  pythonHealthCheck,
   getLatestDraw,
   validateToken,
 } from "../../services/api";
@@ -23,6 +24,7 @@ export default function InfoScreen() {
   const router = useRouter();
   const [loginState, setLoginState] = useState<"checking" | "logged_in" | "not_logged_in" | "invalid">("checking");
   const [workerState, setWorkerState] = useState<"checking" | "healthy" | "unhealthy">("checking");
+  const [pythonWorkerState, setPythonWorkerState] = useState<"checking" | "healthy" | "unhealthy">("checking");
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState("");
@@ -37,6 +39,7 @@ export default function InfoScreen() {
     await Promise.all([
       checkLoginState(),
       checkWorkerState(),
+      checkPythonWorkerState(),
       checkLatestDraw(),
     ]);
   }
@@ -79,6 +82,15 @@ export default function InfoScreen() {
       setWorkerState("healthy");
     } catch (err) {
       setWorkerState("unhealthy");
+    }
+  }
+
+  async function checkPythonWorkerState() {
+    try {
+      await pythonHealthCheck();
+      setPythonWorkerState("healthy");
+    } catch (err) {
+      setPythonWorkerState("unhealthy");
     }
   }
 
@@ -221,6 +233,15 @@ export default function InfoScreen() {
               { backgroundColor: getStatusColor(workerState) }
             ]}>
               <Text style={styles.badgeText}>{getStatusText(workerState)}</Text>
+            </View>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Python Engine:</Text>
+            <View style={[
+              styles.badge,
+              { backgroundColor: getStatusColor(pythonWorkerState) }
+            ]}>
+              <Text style={styles.badgeText}>{getStatusText(pythonWorkerState)}</Text>
             </View>
           </View>
           <View style={styles.row}>
