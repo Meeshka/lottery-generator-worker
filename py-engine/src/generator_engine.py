@@ -201,7 +201,8 @@ def generate_tickets(
             if lg.max_intersection(nums, pool) > max_common:
                 continue
 
-            cluster_w = 3.0 if target_centroid is not None else 0.0
+            cluster_w = 15.0 if target_centroid is not None else 0.0
+            seg_w = 0.1 if target_centroid is not None else 0.35
 
             score = score_candidate(
                 nums=nums,
@@ -209,7 +210,7 @@ def generate_tickets(
                 seg_usage=batch_seg_usage,
                 target_centroid=target_centroid,
                 reuse_weight=4.0,
-                segment_weight=0.35,
+                segment_weight=seg_w,
                 cluster_weight=cluster_w,
             )
 
