@@ -106,7 +106,8 @@ function parseWinningTables(rawJson: string | null): Record<string, unknown> | n
 
   try {
     const parsed = JSON.parse(rawJson) as Record<string, unknown>;
-    const winningTables = parsed?.winningTables;
+    const results = parsed?.results as Record<string, unknown> | undefined;
+    const winningTables = results?.winningTables as Record<string, unknown> | undefined;
 
     if (!winningTables || typeof winningTables !== "object") {
       return null;
