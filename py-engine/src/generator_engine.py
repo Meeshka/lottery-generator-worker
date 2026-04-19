@@ -172,6 +172,7 @@ def generate_tickets(
         cluster_info = lg.CLUSTERING_DATA["clusters"].get(cluster_key)
         if cluster_info and "centroid" in cluster_info:
             target_centroid = tuple(float(x) for x in cluster_info["centroid"])
+            lg.apply_cluster_weights(target_centroid)
 
     results = []
     seen_final = set()
@@ -241,5 +242,8 @@ def generate_tickets(
             "numbers": list(nums),
             "strong": ctrl,
         })
+
+    if target_centroid is not None:
+        lg.restore_original_weights()
 
     return results
