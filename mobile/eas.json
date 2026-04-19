@@ -1,4 +1,4 @@
-{
+﻿{
   "cli": {
     "version": ">= 16.0.0"
   },
@@ -6,14 +6,13 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "image": "latest"
+        "buildType": "apk"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
-        "image": "latest"
+        "buildType": "app-bundle"
       }
     }
   },
