@@ -46,6 +46,7 @@ class Default(WorkerEntrypoint):
                 try:
                     body = await request.json()
                     draws = body.get('draws', [])
+                    window_size = int(body.get('windowSize', 150))
                     print(f"[DEBUG] entry.py: Received {len(draws)} draws from main Worker")
 
                     with open(history_path, 'w') as f:
@@ -64,11 +65,20 @@ class Default(WorkerEntrypoint):
                                 else:
                                     f.write(json.dumps(draw['raw_json']) + '\n')
                             else:
+                                raw_draw_id = draw.get('draw_id')
+                                normalized_draw_id = None
+                                try:
+                                    if raw_draw_id is not None:
+                                        normalized_draw_id = int(raw_draw_id)
+                                except (TypeError, ValueError):
+                                    normalized_draw_id = None
+
                                 draw_obj = {
-                                    'id': draw.get('draw_id'),
+                                    'id': normalized_draw_id,
                                     'endsAt': draw.get('draw_date'),
                                     'numbers': draw.get('numbers', []),
-                                    'strong': draw.get('strong_number')
+                                    'strong': draw.get('strong_number'),
+                                    'paisId': draw.get('pais_id'),
                                 }
                                 f.write(json.dumps(draw_obj) + '\n')
 
@@ -77,6 +87,7 @@ class Default(WorkerEntrypoint):
                     weights_data = recalculate_weights(
                         history_path=history_path,
                         weights_path=weights_path,
+                        window_size=window_size,
                     )
                     print(f"[DEBUG] entry.py: recalculate_weights returned")
 

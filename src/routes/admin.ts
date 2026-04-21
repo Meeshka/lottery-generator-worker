@@ -21,7 +21,11 @@ import {
   importBatchResults,
   calculateAndImportBatchResults,
 } from "../services/resultService";
-import { upsertDraw, getDrawByDrawId } from "../repositories/drawsRepo";
+import {
+  upsertDrawByIdentity,
+  getDrawByDrawId,
+  getDrawByPaisId,
+} from "../repositories/drawsRepo";
 import { insertWeights } from "../repositories/weightsRepo";
 import { getDailyBatchQuota, setDailyBatchQuota } from "../repositories/settingsRepo";
 
@@ -87,13 +91,29 @@ export async function handleAdminRoute(
       const draws = body.draws ?? [];
       const upsertedDraws: any[] = [];
       let newDrawsCount = 0;
+      let matchedByPaisCount = 0;
+      let matchedByDrawIdCount = 0;
 
       for (const draw of draws) {
-        const existing = await getDrawByDrawId(env.DB, draw.drawId);
-        if (!existing) {
+        const existingByPais =
+          draw.paisId != null
+            ? await getDrawByPaisId(env.DB, draw.paisId)
+            : null;
+
+        const existingByDrawId = existingByPais
+          ? null
+          : await getDrawByDrawId(env.DB, draw.drawId);
+
+        if (!existingByPais && !existingByDrawId) {
           newDrawsCount++;
         }
-        const upserted = await upsertDraw(env.DB, {
+        if (existingByPais) {
+          matchedByPaisCount++;
+        } else if (existingByDrawId) {
+          matchedByDrawIdCount++;
+        }
+
+        const upserted = await upsertDrawByIdentity(env.DB, {
           drawId: draw.drawId,
           drawDate: draw.drawDate,
           numbersJson: draw.numbersJson,
@@ -107,6 +127,8 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         count: newDrawsCount,
+        matchedByPais: matchedByPaisCount,
+        matchedByDrawId: matchedByDrawIdCount,
         draws: upsertedDraws,
       });
     } catch (error) {
