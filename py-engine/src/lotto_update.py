@@ -100,6 +100,7 @@ def fetch_draws_from_api(
 def recalculate_weights(
     history_path: str = "draw_history.jsonl",
     weights_path: str = "weights.json",
+    window_size: int = 150,
 ) -> Dict[str, Any]:
     """Recalculate weights from existing draw history.
 
@@ -107,7 +108,29 @@ def recalculate_weights(
     Does NOT fetch from API - uses existing history file.
     """
     all_draws = draw_history.load_history(history_path)
-    w = weights.compute_all_weights(all_draws)
+
+    def _sort_key(draw: Dict[str, Any]) -> tuple:
+        ends_at = str(draw.get("endsAt") or "")
+        raw_id = draw.get("id")
+        try:
+            draw_id = int(raw_id)
+        except (TypeError, ValueError):
+            draw_id = 0
+        return (ends_at, draw_id)
+
+    all_draws = sorted(all_draws, key=_sort_key)
+    window_draws = all_draws[-window_size:] if window_size > 0 else all_draws
+
+    w = weights.compute_all_weights(window_draws)
+    w["history_window"] = {
+        "requested": window_size,
+        "used": len(window_draws),
+        "total_available": len(all_draws),
+        "from_draw_id": window_draws[0].get("id") if window_draws else None,
+        "to_draw_id": window_draws[-1].get("id") if window_draws else None,
+        "from_date": window_draws[0].get("endsAt") if window_draws else None,
+        "to_date": window_draws[-1].get("endsAt") if window_draws else None,
+    }
     _save_json(weights_path, w)
     print(f"weights.json обновлён -> {weights_path}")
     return w

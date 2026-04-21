@@ -3,7 +3,7 @@ import { handleAdminRoute } from "./routes/admin";
 import { handleAuthRoute } from "./routes/auth";
 import { handleBatchesRoute } from "./routes/batches";
 import { handleStatsRoute } from "./routes/stats";
-import { countDraws } from "./repositories/drawsRepo";
+import { countDraws, getRecentDrawsForWeights } from "./repositories/drawsRepo";
 import { getCurrentWeights } from "./repositories/weightsRepo";
 import { jsonResponse, notFoundResponse } from "./utils/response";
 import { fetchOpenPaisDraw } from "./utils/pais";
@@ -96,21 +96,25 @@ export default {
       }
 
       try {
-        // Fetch all draws from database
-        const draws = await env.DB
-          .prepare(`
-            SELECT draw_id, draw_date, numbers_json, strong_number, raw_json
-            FROM draws
-            ORDER BY draw_date ASC, draw_id ASC
-          `)
-          .all();
+        const body = await request.json().catch(() => ({} as Record<string, unknown>));
+        const requestedWindowSize = Number(body.windowSize);
+        const windowSize =
+          Number.isInteger(requestedWindowSize) && requestedWindowSize > 0
+            ? Math.min(requestedWindowSize, 300)
+            : 150;
+
+        // Fetch only the recent sliding window from D1
+        const draws = await getRecentDrawsForWeights(env.DB, windowSize);
 
         const pythonRequest = new Request("https://py-engine/recalculate-weights", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ draws: draws.results || draws }),
+          body: JSON.stringify({
+            draws,
+            windowSize,
+          }),
         });
 
         const pythonResponse = await env.PY_ENGINE.fetch(pythonRequest);
@@ -186,8 +190,10 @@ export default {
           ok: true,
           message: "Weights recalculated and imported successfully",
           weights: pythonData.weights,
+          historyWindow: pythonData.weights?.history_window ?? null,
           importedDraws: importDraws.length,
           totalDraws,
+          windowSize,
         });
       } catch (error) {
         console.error("[recalculate-weights] Error:", error);

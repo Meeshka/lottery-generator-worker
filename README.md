@@ -28,6 +28,8 @@ This project consists of three main components:
 ## Features
 
 - **Weighted Number Generation**: Uses historical draw data to calculate optimal number weights
+- **Sliding Window Calculation**: Configurable window size for weight recalculation (default: 150 draws, max: 300)
+- **Smart Draw Matching**: CSV import matches draws by `paisId` first, then falls back to `drawId`
 - **Batch Management**: Create, track, and manage ticket batches
 - **Authentication**: OTP-based authentication integration with LottoSheli
 - **Admin Panel**: Administrative features for weight recalculation and draw updates
@@ -184,9 +186,9 @@ npm run android  # or npm run ios
 ### Admin Endpoints (Requires Admin Key)
 
 - `POST /admin/update-draws` - Update draws from LottoSheli API
-- `POST /admin/recalculate-weights` - Recalculate number weights
+- `POST /admin/recalculate-weights` - Recalculate number weights (supports optional `windowSize` parameter, defaults to 150, max 300)
 - `POST /admin/import/weights` - Import weight data
-- `POST /admin/import/draws` - Import draw data
+- `POST /admin/import/draws` - Import draw data (matches by `paisId` first, then `drawId` as fallback)
 
 ### Batch Management
 
