@@ -42,7 +42,8 @@
             "backgroundColor": "#6366F1"
           }
         }
-      ]
+      ],
+      "./plugins/withAdiRegistration"
     ],
     "experiments": {
       "typedRoutes": true,
