@@ -302,20 +302,21 @@ def _generate_recommendations(clusters_data: Dict[str, Any]) -> Dict[str, Any]:
     if total == 0:
         return {"note": "No data available for recommendations"}
     
-    # Find smallest clusters (potential opportunities)
-    sorted_by_size = sorted(sizes.items(), key=lambda x: x[1])
-    smallest = sorted_by_size[:2]  # Two smallest clusters
+    sorted_by_size_desc = sorted(sizes.items(), key=lambda x: x[1], reverse=True)
+    recommended = [c[0] for c in sorted_by_size_desc[:2]]
+    most_common = sorted_by_size_desc[0][0]
     
     return {
-        "most_common_cluster": max(sizes.items(), key=lambda x: x[1])[0],
-        "rare_clusters": [c[0] for c in smallest],
-        "suggested_strategy": "Consider targeting rare clusters for potential underexploited patterns",
+        "most_common_cluster": most_common,
+        "recommended_clusters": recommended,
+        "suggested_strategy": "Use the most frequent clusters as the primary source for generation",
         "cluster_targets": {
             c[0].replace("cluster_", ""): {
                 "size": c[1],
-                "opportunity_score": round((total - c[1]) / total * 100, 1)
+                "share_percent": round(c[1] / total * 100, 1),
+                "is_recommended": c[0] in recommended
             }
-            for c in sorted_by_size
+            for c in sorted_by_size_desc
         }
     }
 
