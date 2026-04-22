@@ -308,64 +308,53 @@ def calculate_silhouette_score(
     Calculate silhouette score for clustering evaluation.
     Returns average silhouette score (range: -1 to 1, higher is better).
     """
-    if weights is None:
-        weights = np.ones(4)
-    
     n_samples = len(vectors)
-    if n_samples == 0:
+    if n_samples <= 1:
         return 0.0
-    
-    silhouette_scores = []
-    
-    def weighted_distance(a, b):
-        diff = (a - b) * weights
-        return np.sqrt(np.sum(diff ** 2))
-    
+
+    if weights is None:
+        weights = np.ones(vectors.shape[1], dtype=float)
+    else:
+        weights = np.asarray(weights, dtype=float)
+
+    unique_clusters = np.unique(labels)
+    if len(unique_clusters) < 2:
+        return 0.0
+
+    weighted_vectors = vectors * weights
+    diff = weighted_vectors[:, np.newaxis, :] - weighted_vectors[np.newaxis, :, :]
+    distance_matrix = np.sqrt(np.sum(diff ** 2, axis=2))
+
+    silhouette_scores = np.zeros(n_samples, dtype=float)
+
     for i in range(n_samples):
-        # Get cluster for point i
         cluster_i = labels[i]
-        points_in_cluster_i = np.where(labels == cluster_i)[0]
-        
-        if len(points_in_cluster_i) <= 1:
-            silhouette_scores.append(0.0)
+
+        same_mask = (labels == cluster_i)
+        same_mask[i] = False
+        if not np.any(same_mask):
+            silhouette_scores[i] = 0.0
             continue
-        
-        # Calculate a: average distance to other points in same cluster
-        distances_same = []
-        for j in points_in_cluster_i:
-            if i != j:
-                distances_same.append(weighted_distance(vectors[i], vectors[j]))
-        
-        a = np.mean(distances_same) if distances_same else 0.0
-        
-        # Calculate b: minimum average distance to points in other clusters
-        distances_other = []
-        unique_clusters = np.unique(labels)
-        
+
+        a = float(np.mean(distance_matrix[i, same_mask]))
+
+        b = None
         for cluster_j in unique_clusters:
             if cluster_j == cluster_i:
                 continue
-            
-            points_in_cluster_j = np.where(labels == cluster_j)[0]
-            if len(points_in_cluster_j) == 0:
+            other_mask = (labels == cluster_j)
+            if not np.any(other_mask):
                 continue
-            
-            cluster_distances = []
-            for j in points_in_cluster_j:
-                cluster_distances.append(weighted_distance(vectors[i], vectors[j]))
-            
-            if cluster_distances:
-                distances_other.append(np.mean(cluster_distances))
-        
-        b = min(distances_other) if distances_other else 0.0
-        
-        # Silhouette score for this point
-        if a == 0 and b == 0:
-            silhouette_scores.append(0.0)
+            mean_dist = float(np.mean(distance_matrix[i, other_mask]))
+            if b is None or mean_dist < b:
+                b = mean_dist
+
+        if b is None or (a == 0.0 and b == 0.0):
+            silhouette_scores[i] = 0.0
         else:
-            silhouette_scores.append((b - a) / max(a, b))
-    
-    return np.mean(silhouette_scores) if silhouette_scores else 0.0
+            silhouette_scores[i] = (b - a) / max(a, b)
+
+    return float(np.mean(silhouette_scores))
 
 
 def find_optimal_clusters(
@@ -396,6 +385,8 @@ def find_optimal_clusters(
     silhouette_scores = []
     cluster_results = {}
     
+    id_to_index = {d["id"]: i for i, d in enumerate(draws) if "id" in d}
+
     for n_clusters in range(min_clusters, max_clusters + 1):
         # Run weighted k-means
         result = weighted_kmeans_clustering(
@@ -411,8 +402,9 @@ def find_optimal_clusters(
         labels = np.zeros(n_samples, dtype=int)
         for cluster_id, cluster_draws in result["clusters"].items():
             for draw in cluster_draws:
-                draw_idx = next(i for i, d in enumerate(draws) if d["id"] == draw["id"])
-                labels[draw_idx] = cluster_id
+                draw_idx = id_to_index.get(draw["id"])
+                if draw_idx is not None:
+                    labels[draw_idx] = cluster_id
         
         # Calculate silhouette score
         score = calculate_silhouette_score(vectors, labels, weights)
