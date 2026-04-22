@@ -30,6 +30,9 @@ This project consists of three main components:
 - **Weighted Number Generation**: Uses historical draw data to calculate optimal number weights
 - **Dual Window Configuration**: Separate configurable windows for weight calculation (default: 300 draws) and clustering (default: 150 draws)
 - **Smart Draw Matching**: CSV import matches draws by `paisId` first, then falls back to `drawId`
+- **Enhanced Data Normalization**: Robust parsing of draw data with multiple fallback sources for numbers, strong number, dates, and IDs
+- **Optimized Clustering**: Vectorized silhouette score calculation using NumPy broadcasting for improved CPU performance
+- **Smart Cluster Recommendations**: Focuses on most common distribution patterns rather than rare ones for more reliable generation
 - **Batch Management**: Create, track, and manage ticket batches
 - **Authentication**: OTP-based authentication integration with LottoSheli
 - **Admin Panel**: Administrative features for weight recalculation, draw updates, and generation window management
@@ -186,7 +189,11 @@ npm run android  # or npm run ios
 ### Admin Endpoints (Requires Admin Key)
 
 - `POST /admin/update-draws` - Update draws from LottoSheli API
-- `POST /admin/recalculate-weights` - Recalculate number weights (supports optional `weightsWindow` and `clusterWindow` parameters, defaults to 300 and 150 respectively)
+- `POST /admin/recalculate-weights` - Recalculate number weights with enhanced data normalization
+  - Body: `{ "draws": [...], "weightsWindow": 300, "clusterWindow": 150 }`
+  - Supports optional `weightsWindow` (default: 300) and `clusterWindow` (default: 150) parameters
+  - Normalizes draw data from multiple sources (raw_json, numbers_json, numbers fields)
+  - Returns optimized weights with cluster analysis focusing on most common patterns
 - `POST /admin/import/weights` - Import weight data
 - `POST /admin/import/draws` - Import draw data (matches by `paisId` first, then `drawId` as fallback)
 - `GET /admin/settings/daily-batch-quota` - Get daily batch quota setting
