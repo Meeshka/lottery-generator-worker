@@ -5,6 +5,7 @@ import { handleBatchesRoute } from "./routes/batches";
 import { handleStatsRoute } from "./routes/stats";
 import { countDraws, getRecentDrawsForWeights } from "./repositories/drawsRepo";
 import { getCurrentWeights } from "./repositories/weightsRepo";
+import { getGenerationWindows } from "./repositories/settingsRepo";
 import { jsonResponse, notFoundResponse } from "./utils/response";
 import { fetchOpenPaisDraw } from "./utils/pais";
 import { requireAdminContext } from "./utils/routeGuards";
@@ -97,14 +98,23 @@ export default {
 
       try {
         const body = await request.json().catch(() => ({} as Record<string, unknown>));
-        const requestedWindowSize = Number(body.windowSize);
-        const windowSize =
-          Number.isInteger(requestedWindowSize) && requestedWindowSize > 0
-            ? Math.min(requestedWindowSize, 300)
-            : 150;
+        const settings = await getGenerationWindows(env.DB);
 
-        // Fetch only the recent sliding window from D1
-        const draws = await getRecentDrawsForWeights(env.DB, windowSize);
+        const requestedWeightsWindow = Number(body.weightsWindow);
+        const requestedClusterWindow = Number(body.clusterWindow);
+
+        const weightsWindow =
+          Number.isInteger(requestedWeightsWindow) && requestedWeightsWindow > 0
+            ? Math.min(requestedWeightsWindow, 1000)
+            : settings.weightsWindow;
+
+        const clusterWindow =
+          Number.isInteger(requestedClusterWindow) && requestedClusterWindow > 0
+            ? Math.min(requestedClusterWindow, 1000)
+            : settings.clusterWindow;
+
+        const fetchWindow = Math.max(weightsWindow, clusterWindow);
+        const draws = await getRecentDrawsForWeights(env.DB, fetchWindow);
 
         const pythonRequest = new Request("https://py-engine/recalculate-weights", {
           method: "POST",
@@ -113,7 +123,8 @@ export default {
           },
           body: JSON.stringify({
             draws,
-            windowSize,
+            weightsWindow,
+            clusterWindow,
           }),
         });
 
@@ -193,7 +204,8 @@ export default {
           historyWindow: pythonData.weights?.history_window ?? null,
           importedDraws: importDraws.length,
           totalDraws,
-          windowSize,
+          weightsWindow,
+          clusterWindow,
         });
       } catch (error) {
         console.error("[recalculate-weights] Error:", error);

@@ -14,10 +14,12 @@ import { useRouter } from "expo-router";
 import {
   updateDraws,
   validateToken,
-  recalculateWeights,
+  recalculateWeightsWithWindows,
   checkMissingBatchResults,
   getDailyBatchQuota,
   setDailyBatchQuota,
+  getGenerationWindows,
+  setGenerationWindows,
 } from "../../services/api";
 import {
   getAccessToken,
@@ -36,6 +38,12 @@ export default function AdminActionsScreen() {
   const [editingQuota, setEditingQuota] = useState(false);
   const [newQuota, setNewQuota] = useState("");
   const [savingQuota, setSavingQuota] = useState(false);
+  const [weightsWindow, setWeightsWindow] = useState<number | null>(null);
+  const [clusterWindow, setClusterWindow] = useState<number | null>(null);
+  const [editingWindows, setEditingWindows] = useState(false);
+  const [newWeightsWindow, setNewWeightsWindow] = useState("");
+  const [newClusterWindow, setNewClusterWindow] = useState("");
+  const [savingWindows, setSavingWindows] = useState(false);
 
   useEffect(() => {
     checkAuthAndRedirect();
@@ -44,6 +52,7 @@ export default function AdminActionsScreen() {
   useEffect(() => {
     if (isAdmin && tokenValid) {
       loadDailyQuota();
+      loadGenerationWindows();
     }
   }, [isAdmin, tokenValid]);
 
@@ -122,6 +131,71 @@ export default function AdminActionsScreen() {
     }
   }
 
+  async function loadGenerationWindows() {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const result = await getGenerationWindows(token);
+      if (result.ok) {
+        setWeightsWindow(result.weightsWindow);
+        setClusterWindow(result.clusterWindow);
+        setNewWeightsWindow(String(result.weightsWindow));
+        setNewClusterWindow(String(result.clusterWindow));
+      }
+    } catch (err) {
+      console.error("Error loading generation windows:", err);
+    }
+  }
+
+  async function handleSaveWindows() {
+    const token = await getAccessToken();
+    if (!token) {
+      Alert.alert("Error", "No access token found. Please login first.");
+      return;
+    }
+
+    const weightsValue = parseInt(newWeightsWindow, 10);
+    const clusterValue = parseInt(newClusterWindow, 10);
+
+    if (isNaN(weightsValue) || weightsValue <= 0) {
+      Alert.alert("Error", "Please enter a valid weights window.");
+      return;
+    }
+
+    if (isNaN(clusterValue) || clusterValue <= 0) {
+      Alert.alert("Error", "Please enter a valid cluster window.");
+      return;
+    }
+
+    setSavingWindows(true);
+    try {
+      const result = await setGenerationWindows(token, {
+        weightsWindow: weightsValue,
+        clusterWindow: clusterValue,
+      });
+
+      if (result.ok) {
+        setWeightsWindow(result.weightsWindow);
+        setClusterWindow(result.clusterWindow);
+        setEditingWindows(false);
+        Alert.alert(
+          "Success",
+          `Generation windows updated.\nWeights: ${result.weightsWindow}\nClusters: ${result.clusterWindow}` 
+        );
+      } else {
+        Alert.alert("Error", "Failed to update generation windows.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      Alert.alert("Error", message);
+    } finally {
+      setSavingWindows(false);
+    }
+  }
+
+
+
   async function handleUpdateDraws() {
     const token = await getAccessToken();
     if (!token) {
@@ -199,10 +273,16 @@ export default function AdminActionsScreen() {
           onPress: async () => {
             setRecalculatingWeights(true);
             try {
-              const result = await recalculateWeights(token);
+              const result = await recalculateWeightsWithWindows(token, {
+                weightsWindow: weightsWindow ?? 300,
+                clusterWindow: clusterWindow ?? 150,
+              });
 
               if (result.ok) {
-                const message = result.message || "Weights recalculated successfully";
+                const message =
+                  `${result.message || "Weights recalculated successfully"}\n` +
+                  `Weights window: ${result.weightsWindow ?? (weightsWindow ?? 300)}\n` +
+                  `Cluster window: ${result.clusterWindow ?? (clusterWindow ?? 150)}`;
                 Alert.alert("Success", message);
               } else {
                 Alert.alert("Error", result.error || "Failed to recalculate weights");
@@ -318,7 +398,7 @@ export default function AdminActionsScreen() {
         <View style={styles.actionCard}>
           <Text style={styles.actionTitle}>Recalculate Weights</Text>
           <Text style={styles.actionDescription}>
-            Recalculates weights/priorities for generation.
+            Recalculates weights/priorities for generation using the configured windows.
           </Text>
           <Pressable
             style={({ pressed }) => [
@@ -424,6 +504,87 @@ export default function AdminActionsScreen() {
               </View>
             )}
           </View>
+        </View>
+
+        <View style={styles.actionCard}>
+          <Text style={styles.actionTitle}>Generation Windows</Text>
+          <Text style={styles.actionDescription}>
+            Recommended defaults: weights = 300, clusters = 150.
+          </Text>
+          {editingWindows ? (
+            <View style={styles.settingsColumn}>
+              <Text style={styles.fieldLabel}>Weights window</Text>
+              <TextInput
+                style={styles.quotaInput}
+                value={newWeightsWindow}
+                onChangeText={setNewWeightsWindow}
+                keyboardType="number-pad"
+                placeholder="Enter weights window"
+              />
+
+              <Text style={[styles.fieldLabel, styles.fieldSpacing]}>Cluster window</Text>
+              <TextInput
+                style={styles.quotaInput}
+                value={newClusterWindow}
+                onChangeText={setNewClusterWindow}
+                keyboardType="number-pad"
+                placeholder="Enter cluster window"
+              />
+
+              <View style={[styles.quotaEditContainer, styles.settingsButtons]}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quotaButton,
+                    styles.saveButton,
+                    pressed && styles.buttonPressed,
+                    savingWindows && styles.buttonDisabled,
+                  ]}
+                  onPress={handleSaveWindows}
+                  disabled={savingWindows}
+                >
+                  {savingWindows ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>Save</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quotaButton,
+                    styles.cancelButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => {
+                    setEditingWindows(false);
+                    setNewWeightsWindow(String(weightsWindow ?? 300));
+                    setNewClusterWindow(String(clusterWindow ?? 150));
+                  }}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.settingsColumn}>
+              <Text style={styles.settingValue}>
+                Weights window: <Text style={styles.settingValueStrong}>{weightsWindow ?? 300}</Text>
+              </Text>
+              <Text style={styles.settingValue}>
+                Cluster window: <Text style={styles.settingValueStrong}>{clusterWindow ?? 150}</Text>
+              </Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.quotaButton,
+                  styles.editButton,
+                  pressed && styles.buttonPressed,
+                  styles.settingsEditButton,
+                ]}
+                onPress={() => setEditingWindows(true)}
+              >
+                <Text style={styles.buttonText}>Edit</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -548,5 +709,32 @@ const styles = StyleSheet.create({
   quotaLabel: {
     fontSize: 14,
     color: "#666",
+  },
+  settingsColumn: {
+    marginTop: 8,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  fieldSpacing: {
+    marginTop: 12,
+  },
+  settingsButtons: {
+    marginTop: 12,
+  },
+  settingValue: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 8,
+  },
+  settingValueStrong: {
+    fontWeight: "700",
+  },
+  settingsEditButton: {
+    marginTop: 12,
+    alignSelf: "flex-start",
   },
 });

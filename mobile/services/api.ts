@@ -345,6 +345,29 @@ export async function recalculateWeights(accessToken: string) {
   return res.json();
 }
 
+export async function recalculateWeightsWithWindows(
+  accessToken: string,
+  input: { weightsWindow: number; clusterWindow: number },
+) {
+  const res = await fetch(buildUrl("/admin/recalculate-weights"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to recalculate weights - ${text}`);
+  }
+
+  return res.json();
+}
+
+
 export async function importWeights(
   weightsJson: string,
   sourceDrawCount: number,
@@ -524,3 +547,46 @@ export async function setDailyBatchQuota(accessToken: string, quota: number): Pr
 
   return res.json();
 }
+
+export async function getGenerationWindows(
+  accessToken: string,
+): Promise<{ ok: boolean; weightsWindow: number; clusterWindow: number }> {
+  const res = await fetch(buildUrl("/admin/settings/generation-windows"), {
+    method: "GET",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to get generation windows - ${text}`);
+  }
+
+  return res.json();
+}
+
+export async function setGenerationWindows(
+  accessToken: string,
+  input: { weightsWindow: number; clusterWindow: number },
+): Promise<{ ok: boolean; weightsWindow: number; clusterWindow: number }> {
+  const res = await fetch(buildUrl("/admin/settings/generation-windows"), {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: Failed to set generation windows - ${text}`);
+  }
+
+  return res.json();
+}
+

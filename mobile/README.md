@@ -69,9 +69,10 @@ mobile/
   - Automatic token refresh
 
 - **Admin Panel** (for admin users):
-  - Recalculate number weights
+  - Recalculate number weights with configurable windows
   - Update draw data from LottoSheli
   - Manage batch quotas
+  - Configure generation windows (weights window for frequency calculation, cluster window for clustering analysis)
   - Check missing results
 
 ### UI Features
@@ -183,6 +184,9 @@ The app communicates with the API worker through the `services/api.ts` module. K
 - `getBatchDetails(id)` - Get batch details
 - `generateOtp(idNumber, phoneNumber)` - Generate authentication OTP
 - `validateOtp(idNumber, phoneNumber, otpCode)` - Validate OTP and get tokens
+- `recalculateWeightsWithWindows(accessToken, { weightsWindow, clusterWindow })` - Recalculate weights with custom windows
+- `getGenerationWindows(accessToken)` - Get generation windows settings
+- `setGenerationWindows(accessToken, { weightsWindow, clusterWindow })` - Set generation windows settings
 
 See `services/api.ts` for complete API documentation.
 

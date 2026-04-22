@@ -320,13 +320,19 @@ def _generate_recommendations(clusters_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def compute_all_weights(draws: List[Dict[str, Any]]) -> Dict[str, Any]:
-    seg_w = compute_seg_weights(draws)
-    alpha = compute_alpha_overflow(draws)
-    beta_seg = compute_beta_zero_by_segment(draws)
+def compute_all_weights(
+    draws: List[Dict[str, Any]],
+    clustering_draws: List[Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    base_draws = draws
+    cluster_source_draws = clustering_draws if clustering_draws is not None else draws
+
+    seg_w = compute_seg_weights(base_draws)
+    alpha = compute_alpha_overflow(base_draws)
+    beta_seg = compute_beta_zero_by_segment(base_draws)
     
     # Compute clustering weights
-    cluster_data = compute_cluster_weights(draws, seg_w)
+    cluster_data = compute_cluster_weights(cluster_source_draws, seg_w)
 
     return {
         "segments": {
@@ -344,7 +350,14 @@ def compute_all_weights(draws: List[Dict[str, Any]]) -> Dict[str, Any]:
         "picks": PICKS,
         "n_draws_used": sum(
             1
-            for d in draws
+            for d in base_draws
+            if isinstance(d.get("numbers"), list)
+            and len(d["numbers"]) == 6
+            and all(isinstance(x, int) for x in d["numbers"])
+        ),
+        "n_draws_used_for_clustering": sum(
+            1
+            for d in cluster_source_draws
             if isinstance(d.get("numbers"), list)
             and len(d["numbers"]) == 6
             and all(isinstance(x, int) for x in d["numbers"])

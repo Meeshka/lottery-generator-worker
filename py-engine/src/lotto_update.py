@@ -100,7 +100,8 @@ def fetch_draws_from_api(
 def recalculate_weights(
     history_path: str = "draw_history.jsonl",
     weights_path: str = "weights.json",
-    window_size: int = 150,
+    weights_window: int = 300,
+    cluster_window: int = 150,
 ) -> Dict[str, Any]:
     """Recalculate weights from existing draw history.
 
@@ -119,17 +120,27 @@ def recalculate_weights(
         return (ends_at, draw_id)
 
     all_draws = sorted(all_draws, key=_sort_key)
-    window_draws = all_draws[-window_size:] if window_size > 0 else all_draws
+    weights_draws = all_draws[-weights_window:] if weights_window > 0 else all_draws
+    cluster_draws = all_draws[-cluster_window:] if cluster_window > 0 else all_draws
 
-    w = weights.compute_all_weights(window_draws)
+    w = weights.compute_all_weights(
+        weights_draws,
+        clustering_draws=cluster_draws,
+    )
     w["history_window"] = {
-        "requested": window_size,
-        "used": len(window_draws),
+        "weights_requested": weights_window,
+        "weights_used": len(weights_draws),
+        "cluster_requested": cluster_window,
+        "cluster_used": len(cluster_draws),
         "total_available": len(all_draws),
-        "from_draw_id": window_draws[0].get("id") if window_draws else None,
-        "to_draw_id": window_draws[-1].get("id") if window_draws else None,
-        "from_date": window_draws[0].get("endsAt") if window_draws else None,
-        "to_date": window_draws[-1].get("endsAt") if window_draws else None,
+        "weights_from_draw_id": weights_draws[0].get("id") if weights_draws else None,
+        "weights_to_draw_id": weights_draws[-1].get("id") if weights_draws else None,
+        "weights_from_date": weights_draws[0].get("endsAt") if weights_draws else None,
+        "weights_to_date": weights_draws[-1].get("endsAt") if weights_draws else None,
+        "cluster_from_draw_id": cluster_draws[0].get("id") if cluster_draws else None,
+        "cluster_to_draw_id": cluster_draws[-1].get("id") if cluster_draws else None,
+        "cluster_from_date": cluster_draws[0].get("endsAt") if cluster_draws else None,
+        "cluster_to_date": cluster_draws[-1].get("endsAt") if cluster_draws else None,
     }
     _save_json(weights_path, w)
     print(f"weights.json обновлён -> {weights_path}")

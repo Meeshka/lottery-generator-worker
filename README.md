@@ -28,11 +28,11 @@ This project consists of three main components:
 ## Features
 
 - **Weighted Number Generation**: Uses historical draw data to calculate optimal number weights
-- **Sliding Window Calculation**: Configurable window size for weight recalculation (default: 150 draws, max: 300)
+- **Dual Window Configuration**: Separate configurable windows for weight calculation (default: 300 draws) and clustering (default: 150 draws)
 - **Smart Draw Matching**: CSV import matches draws by `paisId` first, then falls back to `drawId`
 - **Batch Management**: Create, track, and manage ticket batches
 - **Authentication**: OTP-based authentication integration with LottoSheli
-- **Admin Panel**: Administrative features for weight recalculation and draw updates
+- **Admin Panel**: Administrative features for weight recalculation, draw updates, and generation window management
 - **Result Checking**: Automatic prize checking against draw results
 - **Mobile-First**: Native mobile app with intuitive UI
 
@@ -186,9 +186,13 @@ npm run android  # or npm run ios
 ### Admin Endpoints (Requires Admin Key)
 
 - `POST /admin/update-draws` - Update draws from LottoSheli API
-- `POST /admin/recalculate-weights` - Recalculate number weights (supports optional `windowSize` parameter, defaults to 150, max 300)
+- `POST /admin/recalculate-weights` - Recalculate number weights (supports optional `weightsWindow` and `clusterWindow` parameters, defaults to 300 and 150 respectively)
 - `POST /admin/import/weights` - Import weight data
 - `POST /admin/import/draws` - Import draw data (matches by `paisId` first, then `drawId` as fallback)
+- `GET /admin/settings/daily-batch-quota` - Get daily batch quota setting
+- `POST /admin/settings/daily-batch-quota` - Set daily batch quota setting
+- `GET /admin/settings/generation-windows` - Get generation windows settings
+- `POST /admin/settings/generation-windows` - Set generation windows settings
 
 ### Batch Management
 
