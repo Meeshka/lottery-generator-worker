@@ -27,7 +27,12 @@ import {
   getDrawByPaisId,
 } from "../repositories/drawsRepo";
 import { insertWeights } from "../repositories/weightsRepo";
-import { getDailyBatchQuota, setDailyBatchQuota } from "../repositories/settingsRepo";
+import {
+  getDailyBatchQuota,
+  setDailyBatchQuota,
+  getGenerationWindows,
+  setGenerationWindows,
+} from "../repositories/settingsRepo";
 
 interface ImportResultsRequestBody {
   drawId?: string | null;
@@ -366,6 +371,63 @@ export async function handleAdminRoute(
       return jsonResponse({
         ok: true,
         quota: body.quota,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+
+
+  if (pathname === "/admin/settings/generation-windows" && request.method === "GET") {
+    try {
+      const windows = await getGenerationWindows(env.DB);
+
+      return jsonResponse({
+        ok: true,
+        ...windows,
+      });
+    } catch (error) {
+      return badRequestResponse(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  if (pathname === "/admin/settings/generation-windows" && request.method === "POST") {
+    try {
+      const body = await readJsonBody<{
+        weightsWindow: number;
+        clusterWindow: number;
+      }>(request);
+
+      if (
+        typeof body.weightsWindow !== "number" ||
+        body.weightsWindow <= 0 ||
+        !Number.isInteger(body.weightsWindow)
+      ) {
+        return badRequestResponse("Invalid weightsWindow value");
+      }
+
+      if (
+        typeof body.clusterWindow !== "number" ||
+        body.clusterWindow <= 0 ||
+        !Number.isInteger(body.clusterWindow)
+      ) {
+        return badRequestResponse("Invalid clusterWindow value");
+      }
+
+      await setGenerationWindows(env.DB, {
+        weightsWindow: body.weightsWindow,
+        clusterWindow: body.clusterWindow,
+      });
+
+      return jsonResponse({
+        ok: true,
+        weightsWindow: body.weightsWindow,
+        clusterWindow: body.clusterWindow,
       });
     } catch (error) {
       return badRequestResponse(

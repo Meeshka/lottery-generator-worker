@@ -46,7 +46,8 @@ class Default(WorkerEntrypoint):
                 try:
                     body = await request.json()
                     draws = body.get('draws', [])
-                    window_size = int(body.get('windowSize', 150))
+                    weights_window = int(body.get('weightsWindow', 300))
+                    cluster_window = int(body.get('clusterWindow', 150))
                     print(f"[DEBUG] entry.py: Received {len(draws)} draws from main Worker")
 
                     with open(history_path, 'w') as f:
@@ -87,7 +88,8 @@ class Default(WorkerEntrypoint):
                     weights_data = recalculate_weights(
                         history_path=history_path,
                         weights_path=weights_path,
-                        window_size=window_size,
+                        weights_window=weights_window,
+                        cluster_window=cluster_window,
                     )
                     print(f"[DEBUG] entry.py: recalculate_weights returned")
 
