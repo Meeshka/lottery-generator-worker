@@ -52,36 +52,67 @@ class Default(WorkerEntrypoint):
 
                     with open(history_path, 'w') as f:
                         for draw in draws:
-                            if isinstance(draw.get('numbers_json'), str):
-                                try:
-                                    draw['numbers'] = json.loads(draw['numbers_json'])
-                                except:
-                                    draw['numbers'] = []
-                            else:
-                                draw['numbers'] = draw.get('numbers_json', [])
-
+                            raw_obj = None
                             if draw.get('raw_json'):
                                 if isinstance(draw['raw_json'], str):
-                                    f.write(draw['raw_json'] + '\n')
-                                else:
-                                    f.write(json.dumps(draw['raw_json']) + '\n')
-                            else:
-                                raw_draw_id = draw.get('draw_id')
-                                normalized_draw_id = None
-                                try:
-                                    if raw_draw_id is not None:
-                                        normalized_draw_id = int(raw_draw_id)
-                                except (TypeError, ValueError):
-                                    normalized_draw_id = None
+                                    try:
+                                        raw_obj = json.loads(draw['raw_json'])
+                                    except Exception:
+                                        raw_obj = None
+                                elif isinstance(draw['raw_json'], dict):
+                                    raw_obj = draw['raw_json']
 
-                                draw_obj = {
-                                    'id': normalized_draw_id,
-                                    'endsAt': draw.get('draw_date'),
-                                    'numbers': draw.get('numbers', []),
-                                    'strong': draw.get('strong_number'),
-                                    'paisId': draw.get('pais_id'),
-                                }
-                                f.write(json.dumps(draw_obj) + '\n')
+                            numbers = []
+                            if isinstance(draw.get('numbers_json'), str):
+                                try:
+                                    parsed_numbers = json.loads(draw['numbers_json'])
+                                    if isinstance(parsed_numbers, list):
+                                        numbers = parsed_numbers
+                                except Exception:
+                                    pass
+                            elif isinstance(draw.get('numbers_json'), list):
+                                numbers = draw.get('numbers_json', [])
+                            elif isinstance(draw.get('numbers'), list):
+                                numbers = draw.get('numbers', [])
+
+                            if (not numbers) and isinstance(raw_obj, dict):
+                                if isinstance(raw_obj.get('numbers'), list):
+                                    numbers = raw_obj.get('numbers', [])
+                                elif isinstance(raw_obj.get('results'), dict) and isinstance(raw_obj['results'].get('numbers'), list):
+                                    numbers = raw_obj['results'].get('numbers', [])
+
+                            strong = draw.get('strong_number')
+                            if strong is None and isinstance(raw_obj, dict):
+                                if raw_obj.get('strong') is not None:
+                                    strong = raw_obj.get('strong')
+                                elif isinstance(raw_obj.get('results'), dict):
+                                    strong = raw_obj['results'].get('strongNumber')
+
+                            ends_at = draw.get('draw_date')
+                            if ends_at is None and isinstance(raw_obj, dict):
+                                ends_at = raw_obj.get('endsAt')
+
+                            pais_id = draw.get('pais_id')
+                            if pais_id is None and isinstance(raw_obj, dict):
+                                pais_id = raw_obj.get('paisId')
+
+                            normalized_draw_id = None
+                            for candidate in (draw.get('draw_id'), pais_id, raw_obj.get('id') if isinstance(raw_obj, dict) else None):
+                                try:
+                                    if candidate is not None:
+                                        normalized_draw_id = int(candidate)
+                                        break
+                                except (TypeError, ValueError):
+                                    continue
+
+                            draw_obj = {
+                                'id': normalized_draw_id,
+                                'endsAt': ends_at,
+                                'numbers': numbers,
+                                'strong': strong,
+                                'paisId': pais_id,
+                            }
+                            f.write(json.dumps(draw_obj) + '\n')
 
                     print(f"[DEBUG] entry.py: Wrote {len(draws)} draws to history file")
                     print(f"[DEBUG] entry.py: Calling recalculate_weights")
