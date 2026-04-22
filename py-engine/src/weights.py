@@ -213,12 +213,29 @@ def compute_cluster_weights(draws: List[Dict[str, Any]], seg_weights: List[float
             "description": _get_cluster_description(i + 1, centroid)
         }
     
+    recommendations = _generate_recommendations(clusters_data)
+
+    for cluster_name, cluster_info in clusters_data.items():
+        cluster_number = cluster_name.replace("cluster_", "")
+        target_info = recommendations.get("cluster_targets", {}).get(cluster_number, {})
+        share_percent = target_info.get("share_percent")
+        is_recommended = target_info.get("is_recommended", False)
+
+        prefix_parts = []
+        if is_recommended:
+            prefix_parts.append("RECOMMENDED")
+        if share_percent is not None:
+            prefix_parts.append(f"{share_percent}% frequency")
+
+        if prefix_parts:
+            cluster_info["description"] = f"[{' | '.join(prefix_parts)}] {cluster_info['description']}"
+
     return {
         "n_clusters": result["n_clusters"],
         "method": result.get("method", "weighted_kmeans"),
         "segment_weights_used": seg_weights,
         "clusters": clusters_data,
-        "recommendations": _generate_recommendations(clusters_data),
+        "recommendations": recommendations,
         "optimal_n_clusters": optimal_result.get("optimal_n_clusters", result["n_clusters"]),
         "silhouette_score": optimal_result.get("optimal_score", 0.0)
     }
