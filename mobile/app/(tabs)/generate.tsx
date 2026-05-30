@@ -35,6 +35,13 @@ type GeneratedBatch = {
   };
 };
 
+type CurrentWeightsInfo = {
+  drawCount?: number;
+  segmentLines: string[];
+  alphaOverflow?: string;
+  betaZeroBySegment: string[];
+};
+
 export default function GenerateTicketsScreen() {
   const router = useRouter();
   const [count, setCount] = useState("10");
@@ -55,6 +62,7 @@ export default function GenerateTicketsScreen() {
   });
   const [availableClusters, setAvailableClusters] = useState<string[]>(["-", "1", "2", "3", "4"]);
   const [descriptionsLoading, setDescriptionsLoading] = useState(true);
+  const [currentWeightsInfo, setCurrentWeightsInfo] = useState<CurrentWeightsInfo | null>(null);
 
   useEffect(() => {
     fetchClusterDescriptions();
@@ -64,11 +72,10 @@ export default function GenerateTicketsScreen() {
     setDescriptionsLoading(true);
     try {
       const weights = await getCurrentWeights();
-      // console.log("Weights response:", weights);
 
       if (weights && weights.weights_json) {
         const weightsData = JSON.parse(weights.weights_json);
-        // console.log("Weights data clustering:", weightsData.clustering);
+        setCurrentWeightsInfo(formatCurrentWeightsInfo(weightsData));
 
         if (weightsData.clustering && weightsData.clustering.clusters) {
           const descriptions: Record<string, string> = {
@@ -83,21 +90,59 @@ export default function GenerateTicketsScreen() {
           }
           setClusterDescriptions(descriptions);
           setAvailableClusters(clusterIds);
-          // console.log("Set descriptions:", descriptions);
         } else {
-          // console.log("No clustering data found in weights, using fallback");
           setClusterDescriptions(getFallbackDescriptions());
         }
       } else {
-        // console.log("No weights or weights_json found, using fallback");
+        setCurrentWeightsInfo(null);
         setClusterDescriptions(getFallbackDescriptions());
       }
     } catch (err) {
-      // console.error("Error fetching cluster descriptions:", err);
+      setCurrentWeightsInfo(null);
       setClusterDescriptions(getFallbackDescriptions());
     } finally {
       setDescriptionsLoading(false);
     }
+  }
+
+  function formatCurrentWeightsInfo(weightsData: any): CurrentWeightsInfo | null {
+    if (!weightsData || typeof weightsData !== "object") {
+      return null;
+    }
+
+    const segmentEntries =
+      weightsData.segments && typeof weightsData.segments === "object"
+        ? Object.entries(weightsData.segments)
+        : Array.isArray(weightsData.SEG_WEIGHTS)
+          ? weightsData.SEG_WEIGHTS.map((value: unknown, index: number) => [`S${index + 1}`, value])
+          : [];
+
+    const segmentLines = segmentEntries
+      .map(([key, value]) => `${String(key)}: ${formatWeightValue(value)}`)
+      .filter(Boolean);
+
+    return {
+      drawCount:
+        typeof weightsData.n_draws_used === "number" ? weightsData.n_draws_used : undefined,
+      segmentLines,
+      alphaOverflow: formatWeightValue(weightsData.ALPHA_OVERFLOW),
+      betaZeroBySegment: Array.isArray(weightsData.BETA_ZERO_BY_SEGMENT)
+        ? weightsData.BETA_ZERO_BY_SEGMENT.map(
+            (value: unknown, index: number) => `S${index + 1}: ${formatWeightValue(value)}`,
+          )
+        : [],
+    };
+  }
+
+  function formatWeightValue(value: unknown): string {
+    const numericValue =
+      typeof value === "number"
+        ? value
+        : typeof value === "string"
+          ? Number(value)
+          : Number.NaN;
+
+    return Number.isFinite(numericValue) ? numericValue.toFixed(3) : "n/a";
   }
 
   function getFallbackDescriptions(): Record<string, string> {
@@ -304,7 +349,34 @@ export default function GenerateTicketsScreen() {
                 <Text style={styles.dropdownArrow}>▼</Text>
               </Pressable>
               {clusterTarget && (
-                <Text style={styles.description}>{clusterDescriptions[clusterTarget]}</Text>
+                <>
+                  <Text style={styles.description}>{clusterDescriptions[clusterTarget]}</Text>
+                  {clusterTarget === "-" && currentWeightsInfo && (
+                    <View style={styles.weightsInfoBox}>
+                      <Text style={styles.weightsInfoTitle}>
+                        Current Weights
+                        {typeof currentWeightsInfo.drawCount === "number"
+                          ? ` (${currentWeightsInfo.drawCount} draws)`
+                          : ""}
+                      </Text>
+                      {currentWeightsInfo.segmentLines.map((line) => (
+                        <Text key={line} style={styles.weightsInfoLine}>
+                          {line}
+                        </Text>
+                      ))}
+                      {currentWeightsInfo.alphaOverflow && (
+                        <Text style={styles.weightsInfoLine}>
+                          Alpha overflow: {currentWeightsInfo.alphaOverflow}
+                        </Text>
+                      )}
+                      {currentWeightsInfo.betaZeroBySegment.length > 0 && (
+                        <Text style={styles.weightsInfoLine}>
+                          Zero penalty: {currentWeightsInfo.betaZeroBySegment.join(" | ")}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </>
               )}
             </View>
           </View>
@@ -339,7 +411,7 @@ export default function GenerateTicketsScreen() {
                         clusterTarget === option && styles.dropdownOptionTextSelected,
                       ]}
                     >
-                      Cluster {option}
+                      {option === "-" ? "No cluster" : `Cluster ${option}`}
                     </Text>
                   </Pressable>
                 ))}
@@ -559,6 +631,25 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  weightsInfoBox: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e3e7eb",
+  },
+  weightsInfoTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 6,
+  },
+  weightsInfoLine: {
+    fontSize: 12,
+    color: "#4b5563",
+    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,
