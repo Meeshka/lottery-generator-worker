@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,8 +13,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { generateTickets, createBatch, getOpenDraw, getCurrentWeights, validateToken } from "../../services/api";
+import { useFocusEffect } from "expo-router";
+import { generateTickets, createBatch, getOpenDraw, getCurrentWeights } from "../../services/api";
 import { getAccessToken } from "../../services/secureStorage";
 
 type Ticket = {
@@ -43,7 +43,6 @@ type CurrentWeightsInfo = {
 };
 
 export default function GenerateTicketsScreen() {
-  const router = useRouter();
   const [count, setCount] = useState("10");
   const [maxCommon, setMaxCommon] = useState("3");
   const [seed, setSeed] = useState("");
@@ -61,15 +60,9 @@ export default function GenerateTicketsScreen() {
     "-": "No ML cluster. Using calculated weights",
   });
   const [availableClusters, setAvailableClusters] = useState<string[]>(["-", "1", "2", "3", "4"]);
-  const [descriptionsLoading, setDescriptionsLoading] = useState(true);
   const [currentWeightsInfo, setCurrentWeightsInfo] = useState<CurrentWeightsInfo | null>(null);
 
-  useEffect(() => {
-    fetchClusterDescriptions();
-  }, []);
-
-  async function fetchClusterDescriptions() {
-    setDescriptionsLoading(true);
+  const fetchClusterDescriptions = useCallback(async () => {
     try {
       const weights = await getCurrentWeights();
 
@@ -88,22 +81,30 @@ export default function GenerateTicketsScreen() {
             descriptions[clusterNum] = (value as any).description || "";
             clusterIds.push(clusterNum);
           }
+
           setClusterDescriptions(descriptions);
           setAvailableClusters(clusterIds);
         } else {
           setClusterDescriptions(getFallbackDescriptions());
+          setAvailableClusters(["-", "1", "2", "3", "4"]);
         }
       } else {
         setCurrentWeightsInfo(null);
         setClusterDescriptions(getFallbackDescriptions());
+        setAvailableClusters(["-", "1", "2", "3", "4"]);
       }
     } catch (err) {
       setCurrentWeightsInfo(null);
       setClusterDescriptions(getFallbackDescriptions());
-    } finally {
-      setDescriptionsLoading(false);
+      setAvailableClusters(["-", "1", "2", "3", "4"]);
     }
-  }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchClusterDescriptions();
+    }, [fetchClusterDescriptions]),
+  );
 
   function formatCurrentWeightsInfo(weightsData: any): CurrentWeightsInfo | null {
     if (!weightsData || typeof weightsData !== "object") {

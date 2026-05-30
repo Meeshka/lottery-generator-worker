@@ -87,7 +87,13 @@ export default {
         `)
         .first();
 
-      return jsonResponse(row ?? null);
+      return jsonResponse(row ?? null, {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      });
     }
 
     if (url.pathname === "/admin/recalculate-weights" && request.method === "POST") {

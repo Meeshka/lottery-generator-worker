@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --ip 0.0.0.0 --port 8787",
+    "dev:api": "wrangler dev --ip 0.0.0.0 --port 8787",
+    "dev:mobile": "npm --prefix mobile start",
+    "dev:all": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-all.ps1",
+    "db:init:local": "wrangler d1 execute lottery-db --local --file=./migrations/init.sql",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {

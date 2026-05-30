@@ -6,6 +6,8 @@ const PYTHON_ENGINE_BASE =
   process.env.EXPO_PUBLIC_PYTHON_ENGINE_BASE ??
   "https://lottery-generator-python-engine.ushakov-ma.workers.dev";
 
+const DEFAULT_TIMEOUT_MS = 8000;
+
 function buildUrl(path: string) {
   return `${API_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
@@ -14,8 +16,31 @@ function buildPythonUrl(path: string) {
   return `${PYTHON_ENGINE_BASE.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function healthCheck() {
-  const res = await fetch(buildUrl("/health"));
+  const res = await fetchWithTimeout(buildUrl("/health"));
 
   const text = await res.text();
 
@@ -34,7 +59,7 @@ export async function healthCheck() {
 }
 
 export async function pythonHealthCheck() {
-  const res = await fetch(buildPythonUrl("/health"));
+  const res = await fetchWithTimeout(buildPythonUrl("/health"));
 
   const text = await res.text();
 
@@ -53,7 +78,7 @@ export async function pythonHealthCheck() {
 }
 
 export async function getLatestDraw() {
-  const res = await fetch(buildUrl("/draws/latest"));
+  const res = await fetchWithTimeout(buildUrl("/draws/latest"));
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
@@ -317,7 +342,16 @@ export function validateToken(accessToken: string): boolean {
 }
 
 export async function getCurrentWeights() {
-  const res = await fetch(buildUrl("/weights/current"));
+  const url = new URL(buildUrl("/weights/current"));
+  url.searchParams.set("_ts", String(Date.now()));
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      "Accept": "application/json",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+    },
+  });
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
