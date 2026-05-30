@@ -35,7 +35,7 @@ export default function HomeScreen() {
   }, []);
 
   async function loadAllData() {
-    await Promise.all([
+    await Promise.allSettled([
       checkUserProfile(),
       checkWorkerState(),
       checkLoginState(),
