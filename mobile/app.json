@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lotto Generator",
     "slug": "lottogenerator",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "scheme": "lottogenerator",
     "orientation": "portrait",
     "icon": "./assets/images/lotto-icon-centered.png",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "com.meeshka.lottogenerator",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
